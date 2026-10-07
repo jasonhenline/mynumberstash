@@ -407,3 +407,79 @@ test("reaching 100 unlocks specials and pi renders in packs and the stash", asyn
     ),
   ).toBe(true);
 });
+
+test("all special symbols render from API labels in packs and the stash", async ({ page }) => {
+  await mockAuth(page);
+  let opened = false;
+  const specials = [
+    { kind: "special", id: "pi", label: "π" },
+    { kind: "special", id: "e", label: "e" },
+    { kind: "special", id: "phi", label: "φ" },
+    { kind: "special", id: "i", label: "i" },
+    { kind: "special", id: "sqrt2", label: "√2" },
+  ];
+  await page.route(
+    "http://127.0.0.1:54321/functions/v1/game-api/**",
+    async (route) => {
+      const headers = {
+        "Access-Control-Allow-Origin": "http://localhost:5173",
+        "Access-Control-Allow-Headers": "*",
+      };
+      if (route.request().method() === "OPTIONS") {
+        return route.fulfill({
+          status: 204,
+          headers,
+        });
+      }
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/me")) {
+        return route.fulfill({
+          headers,
+          json: {
+            ...basePlayer,
+            distinctCards: 100,
+            specialsUnlocked: true,
+            negativesUnlocked: true,
+            packAllowances: opened ? 0 : 1,
+            nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
+            serverTime: new Date().toISOString(),
+          },
+        });
+      }
+      if (path.endsWith("/collection")) {
+        return route.fulfill({
+          headers,
+          json: {
+            cards: opened
+              ? specials.map((card) => ({ card, quantity: 2 }))
+              : [],
+            nextCursor: null,
+          },
+        });
+      }
+      opened = true;
+      return route.fulfill({
+        headers,
+        json: {
+          cards: [...specials, ...specials],
+          replayed: false,
+          packAllowances: 0,
+          nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
+        },
+      });
+    },
+  );
+  await connect(page);
+  await signIn(page);
+  await page.getByRole("button", { name: "Open a pack" }).click();
+  for (const special of specials) {
+    await expect(
+      page.locator(".pack-cards").getByText(special.label, { exact: true }),
+    ).toHaveCount(2);
+    await expect(
+      page.locator(".cards:not(.pack-cards)").getByText(special.label, {
+        exact: true,
+      }),
+    ).toHaveCount(1);
+  }
+});

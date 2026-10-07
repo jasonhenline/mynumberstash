@@ -1,6 +1,20 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { GAME_RULES, generatePack } from "../_shared/cards.ts";
+import {
+  GAME_RULES,
+  generatePack,
+  type SpecialCardDefinition,
+} from "../_shared/cards.ts";
 import { HttpError, readRequestId } from "../_shared/http.ts";
+
+type CollectionRow = {
+  card_key: string;
+  kind: string;
+  integer_value: string | null;
+  special_id: string | null;
+  quantity: number;
+  first_collected_at: string;
+  special: { label: string } | null;
+};
 
 export function createGameHandler(
   config: {
@@ -79,18 +93,22 @@ export function createGameHandler(
         }
         let query = userClient.from("collection")
           .select(
-            "card_key,kind,integer_value,special_id,quantity,first_collected_at",
+            "card_key,kind,integer_value,special_id,quantity,first_collected_at,special:special_cards(label)",
           )
           .eq("user_id", userId).order("card_key").limit(limit + 1);
         if (cursor) query = query.gt("card_key", cursor);
-        const { data, error } = await query;
+        const { data, error } = await query.returns<CollectionRow[]>();
         if (error) throw error;
         const page = data.slice(0, limit);
         return json({
           cards: page.map((row) => ({
             card: row.kind === "integer"
               ? { kind: "integer", value: row.integer_value }
-              : { kind: "special", id: row.special_id },
+              : {
+                kind: "special",
+                id: row.special_id,
+                label: row.special?.label,
+              },
             quantity: row.quantity,
             firstCollectedAt: row.first_collected_at,
           })),
@@ -127,11 +145,18 @@ export function createGameHandler(
             serverTime: new Date().toISOString(),
           });
         }
+        let specials: SpecialCardDefinition[] = [];
+        if (player.distinct_cards >= GAME_RULES.specialUnlockDistinctCards) {
+          const { data, error } = await admin.from("special_cards")
+            .select("id,label").order("id");
+          if (error) throw error;
+          specials = data;
+        }
         const { data: pack, error } = await admin.rpc("award_pack", {
           p_user_id: userId,
           p_request_id: requestId,
           p_expected_distinct: player.distinct_cards,
-          p_cards: generatePack(player.distinct_cards),
+          p_cards: generatePack(player.distinct_cards, undefined, specials),
         });
         if (error) throw error;
         if (pack.error === "cooldown") {

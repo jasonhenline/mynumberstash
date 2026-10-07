@@ -5,6 +5,8 @@ import {
   geometricInteger,
 } from "../supabase/functions/_shared/cards.ts";
 
+const pi = [{ id: "pi", label: "π" }];
+
 Deno.test("geometric integer counts successes before the first failure", () => {
   const draws = [0.1, 0.89, 0.9];
   assertEquals(geometricInteger(0.9, () => draws.shift()!), 2n);
@@ -62,24 +64,44 @@ Deno.test("geometric distribution has the expected mean and zero frequency", () 
 Deno.test("specials unlock at 100 distinct cards with a half-percent threshold", () => {
   let draw = 0;
   // Below the unlock, these draws still select negatives rather than specials.
-  const locked = generatePack(99, () => draw++ % 2 === 0 ? 0.001 : 0.99);
+  const locked = generatePack(99, () => draw++ % 2 === 0 ? 0.001 : 0.99, pi);
   assertEquals(locked, Array(10).fill({ kind: "integer", value: "-1" }));
   assertEquals(
-    generatePack(100, () => 0.004),
-    Array(10).fill({ kind: "special", id: "pi" }),
+    generatePack(100, () => 0.004, pi),
+    Array(10).fill({ kind: "special", id: "pi", label: "π" }),
   );
   draw = 0;
-  const boundary = generatePack(100, () => draw++ % 3 === 0 ? 0.005 : 0.99);
+  const boundary = generatePack(100, () => draw++ % 3 === 0 ? 0.005 : 0.99, pi);
   assertEquals(boundary, Array(10).fill({ kind: "integer", value: "0" }));
 });
 
 Deno.test("unlocked packs can contain specials, negatives, and nonnegative integers", () => {
-  const draws = [0.001, 0.01, 0.05, 0.99];
+  const draws = [0.001, 0, 0.01, 0.05, 0.99];
   for (let i = 0; i < 8; i++) draws.push(0.01, 0.5, 0.99);
-  assertEquals(generatePack(100, () => draws.shift()!), [
-    { kind: "special", id: "pi" },
+  assertEquals(generatePack(100, () => draws.shift()!, pi), [
+    { kind: "special", id: "pi", label: "π" },
     { kind: "integer", value: "-1" },
     ...Array(8).fill({ kind: "integer", value: "0" }),
   ]);
   assertEquals(draws.length, 0);
+});
+
+Deno.test("every special gets an equal interval of the selection draw", () => {
+  const specials = [
+    { id: "e", label: "e" },
+    { id: "i", label: "i" },
+    { id: "phi", label: "φ" },
+    { id: "pi", label: "π" },
+    { id: "sqrt2", label: "√2" },
+  ];
+  const draws: number[] = [];
+  for (let i = 0; i < 10; i++) draws.push(0, (i % 5 + 0.5) / 5);
+  assertEquals(
+    generatePack(100, () => draws.shift()!, specials),
+    Array.from(
+      { length: 10 },
+      (_, i) => ({ kind: "special" as const, ...specials[i % 5] }),
+    ),
+  );
+  assertThrows(() => generatePack(100), Error, "No special cards configured");
 });

@@ -1,6 +1,8 @@
 export type Card =
   | { kind: "integer"; value: string }
-  | { kind: "special"; id: string };
+  | { kind: "special"; id: string; label: string };
+
+export type SpecialCardDefinition = { id: string; label: string };
 
 export const GAME_RULES = {
   packSize: 10,
@@ -33,14 +35,19 @@ export function geometricInteger(
 export function generatePack(
   distinctCards: number,
   random: () => number = secureRandom,
+  specials: readonly SpecialCardDefinition[] = [],
 ): Card[] {
   const negativesUnlocked =
     distinctCards >= GAME_RULES.negativeUnlockDistinctCards;
   const specialsUnlocked =
     distinctCards >= GAME_RULES.specialUnlockDistinctCards;
+  if (specialsUnlocked && specials.length === 0) {
+    throw new Error("No special cards configured");
+  }
   return Array.from({ length: GAME_RULES.packSize }, () => {
     if (specialsUnlocked && random() < GAME_RULES.specialProbability) {
-      return { kind: "special" as const, id: "pi" };
+      const special = specials[Math.floor(random() * specials.length)];
+      return { kind: "special" as const, id: special.id, label: special.label };
     }
     const negative = negativesUnlocked &&
       random() < GAME_RULES.negativeProbability;

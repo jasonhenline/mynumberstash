@@ -11,6 +11,7 @@ const localDevelopment = import.meta.env.DEV;
 type Card = { kind: "integer"; value: string } | {
   kind: "special";
   id: string;
+  label?: string;
 };
 type OwnedCard = { card: Card; quantity: number };
 type Player = {
@@ -55,7 +56,9 @@ const escape = (value: unknown): string =>
       ]!,
   );
 const label = (card: Card): string =>
-  card.kind === "integer" ? card.value : card.id === "pi" ? "π" : card.id;
+  card.kind === "integer"
+    ? card.value
+    : card.label ?? (card.id === "pi" ? "π" : card.id);
 const pendingKey = (userId: string): string =>
   `number-club.pending.${connection!.url}.${userId}`;
 

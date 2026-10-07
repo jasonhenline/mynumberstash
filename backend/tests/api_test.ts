@@ -213,3 +213,99 @@ Deno.test("player status reports specials locked below 100 and unlocked at 100",
     assertEquals(player.negativesUnlocked, true);
   }
 });
+
+Deno.test("unlocked pack generation loads special definitions from the catalog", async () => {
+  let catalogLoaded = false;
+  const specials = [
+    { id: "e", label: "e" },
+    { id: "i", label: "i" },
+    { id: "phi", label: "φ" },
+    { id: "pi", label: "π" },
+    { id: "sqrt2", label: "√2" },
+  ];
+  const handler = createGameHandler(
+    config,
+    (async (input: string | URL | Request, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      if (path === "/auth/v1/user") return Response.json({ id: userId });
+      if (path === "/rest/v1/rpc/ensure_player") {
+        return Response.json({
+          distinct_cards: 100,
+        });
+      }
+      if (path === "/rest/v1/special_cards") {
+        catalogLoaded = true;
+        return Response.json(specials);
+      }
+      assertEquals(path, "/rest/v1/rpc/award_pack");
+      assertEquals(catalogLoaded, true);
+      const body = await new Response(init?.body).json();
+      assertEquals(body.p_expected_distinct, 100);
+      assertEquals(body.p_cards.length, 10);
+      for (const card of body.p_cards) {
+        if (card.kind === "special") {
+          assertEquals(
+            specials.some((special) =>
+              special.id === card.id && special.label === card.label
+            ),
+            true,
+          );
+        }
+      }
+      return Response.json({ cards: body.p_cards, replayed: false });
+    }) as typeof fetch,
+  );
+  const response = await handler(
+    new Request("http://localhost/game-api/packs/open", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer test-user-token",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ requestId }),
+    }),
+  );
+  assertEquals(response.status, 200);
+});
+
+Deno.test("collection special labels come from the related catalog rows", async () => {
+  const handler = createGameHandler(
+    config,
+    ((input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname === "/auth/v1/user") {
+        return Promise.resolve(
+          Response.json({ id: userId }),
+        );
+      }
+      assertEquals(url.pathname, "/rest/v1/collection");
+      assertEquals(
+        url.searchParams.get("select")?.includes(
+          "special:special_cards(label)",
+        ),
+        true,
+      );
+      return Promise.resolve(
+        Response.json([{
+          card_key: "special:phi",
+          kind: "special",
+          special_id: "phi",
+          quantity: 2,
+          first_collected_at: "2026-10-07T18:00:00Z",
+          special: { label: "φ" },
+        }]),
+      );
+    }) as typeof fetch,
+  );
+  const response = await handler(
+    new Request("http://localhost/game-api/collection", {
+      headers: { Authorization: "Bearer test-user-token" },
+    }),
+  );
+  assertEquals(response.status, 200);
+  assertEquals((await response.json()).cards[0].card, {
+    kind: "special",
+    id: "phi",
+    label: "φ",
+  });
+});
