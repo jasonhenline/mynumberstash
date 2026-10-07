@@ -1,7 +1,21 @@
 :root {
+  color-scheme: dark;
+  --background: #090e14;
+  --surface: #182331;
+  --card: #2a3d50;
+  --empty: #0d151f;
+  --pack: #17382f;
+  --border: #53677b;
+  --control-border: #8195a8;
+  --text: #f4f7fb;
+  --muted: #bac8d8;
+  --accent: #76efb8;
+  --button: #45dfa0;
+  --button-hover: #79efbb;
+  --on-button: #062419;
   font-family: "DM Sans", system-ui, sans-serif;
-  color: #212d32;
-  background: #f4f1ea;
+  color: var(--text);
+  background: var(--background);
   font-synthesis: none;
 }
 * {
@@ -20,7 +34,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #d9d8cf;
+  border-bottom: 1px solid var(--border);
 }
 .brand {
   display: flex;
@@ -45,19 +59,19 @@ header {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #526653;
+  color: var(--muted);
 }
 .environment i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #64795b;
+  background: var(--accent);
 }
 .intro {
   margin: 36px 0 28px;
 }
 .eyebrow {
-  color: #687571;
+  color: var(--muted);
   font-size: 11px;
 }
 h1 {
@@ -74,12 +88,12 @@ h2 {
   margin: 14px 0;
 }
 p {
-  color: #69716c;
+  color: var(--muted);
   line-height: 1.6;
 }
 .panel {
-  background: #fbfaf6;
-  border: 1px solid #dcdcd2;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 32px;
 }
@@ -95,14 +109,18 @@ label {
 input {
   font: inherit;
   width: 100%;
-  border: 1px solid #cbcec5;
+  border: 1px solid var(--control-border);
   border-radius: 6px;
-  background: #fffefa;
+  background: var(--empty);
   padding: 12px;
   color: inherit;
 }
+input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
 input:focus {
-  outline: 2px solid #718369;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 button {
@@ -111,15 +129,15 @@ button {
   font-size: 14px;
   border: 1px solid transparent;
   border-radius: 6px;
-  background: #253c31;
-  color: #fafbf5;
+  background: var(--button);
+  color: var(--on-button);
   padding: 13px 20px;
 }
 button:hover:not(:disabled) {
-  background: #385341;
+  background: var(--button-hover);
 }
 button:focus-visible, a:focus-visible {
-  outline: 3px solid #97aa83;
+  outline: 3px solid var(--accent);
   outline-offset: 3px;
 }
 button:disabled {
@@ -141,43 +159,43 @@ form > button {
   flex: 1;
 }
 .secondary {
-  color: #253c31;
-  border-color: #bac2b3;
+  color: var(--accent);
+  border-color: var(--control-border);
   background: transparent;
 }
 .secondary:hover:not(:disabled) {
-  background: #e3e8dc;
+  background: var(--pack);
 }
 .text-button {
   background: none;
-  color: #3a5845;
+  color: var(--accent);
   padding: 6px 0;
   text-decoration: underline;
   text-underline-offset: 4px;
 }
 .text-button:hover:not(:disabled) {
   background: none;
-  color: #162d20;
+  color: var(--text);
 }
 .fine-print {
   font-size: 12px;
   margin-top: 24px;
 }
 a {
-  color: #385b42;
+  color: var(--accent);
 }
 .notice {
   padding: 16px 20px;
   margin: 24px 0;
   border-radius: 8px;
   font-size: 14px;
-  border: 1px solid #bbceaf;
-  background: #e7eddc;
+  border: 1px solid #49a77d;
+  background: #123629;
 }
 .notice.error {
-  background: #f4e6df;
-  border-color: #d9b7a4;
-  color: #85482e;
+  background: #421e25;
+  border-color: #d77683;
+  color: #ffccd3;
 }
 .game {
   padding-top: 24px;
@@ -189,7 +207,7 @@ a {
   display: flex;
   align-items: center;
   font-size: 12px;
-  color: #6a746c;
+  color: var(--muted);
   gap: 20px;
   min-width: 0;
 }
@@ -233,8 +251,8 @@ a {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  background: #e6e9dd;
-  border: 1px solid #ccd3c0;
+  background: var(--pack);
+  border: 1px solid #49a77d;
   border-radius: 12px;
   padding: 20px;
 }
@@ -250,7 +268,7 @@ a {
 #pack-balance {
   font-size: 17px;
   font-weight: 600;
-  color: #253c31;
+  color: var(--accent);
   margin: 12px 0 6px;
 }
 #pack-time {
@@ -262,7 +280,7 @@ a {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 0 12px;
-  border-block: 1px solid #d9d8cf;
+  border-block: 1px solid var(--border);
   margin: 20px 0 0;
 }
 .stats div {
@@ -278,7 +296,7 @@ a {
 }
 .stats span {
   font-size: 12px;
-  color: #737970;
+  color: var(--muted);
 }
 .section-heading {
   display: flex;
@@ -291,7 +309,7 @@ a {
 }
 .section-heading > span {
   font-size: 12px;
-  color: #687571;
+  color: var(--muted);
 }
 .cards {
   display: grid;
@@ -305,12 +323,12 @@ a {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border: 1px solid #dadcd0;
+  border: 1px solid var(--control-border);
   border-radius: 8px;
-  background: #fcfbf5;
+  background: var(--card);
 }
 .latest-pack {
-  border-top: 1px solid #d9d8cf;
+  border-top: 1px solid var(--border);
   margin-top: 28px;
 }
 .pack-cards {
@@ -323,12 +341,12 @@ a {
 .pack-cards .number-card {
   min-height: 120px;
   padding: 12px;
-  background: #edf0e3;
-  border-color: #ced6bd;
+  background: var(--pack);
+  border-color: var(--control-border);
 }
 .card-kind {
   font-size: 8px;
-  color: #888e81;
+  color: var(--muted);
 }
 .number {
   font-family: "Space Mono", monospace;
@@ -340,18 +358,18 @@ a {
 .card-footer {
   font-size: 8px;
   letter-spacing: 0.4px;
-  color: #78836d;
+  color: var(--muted);
 }
 .empty {
   padding: 44px 24px;
   text-align: center;
-  border: 1px dashed #c9cebe;
+  border: 1px dashed var(--border);
   border-radius: 10px;
 }
 .empty > span {
   font-family: "Space Mono", monospace;
   font-size: 48px;
-  color: #88977a;
+  color: var(--muted);
 }
 .empty h3 {
   font-weight: 500;
@@ -365,8 +383,8 @@ footer {
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  color: #80887b;
-  border-top: 1px solid #d9d8cf;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
   font-size: 9px;
 }
 @media (max-width: 800px) {
@@ -520,14 +538,14 @@ footer {
   align-items: center;
   justify-content: center;
   padding: 4px 4px 12px;
-  border: 1px solid #dadcd0;
+  border: 1px solid var(--control-border);
   border-radius: 4px;
-  background: #fcfbf5;
+  background: var(--card);
 }
 .album-slot.missing {
   border-style: dashed;
-  border-color: #deded3;
-  background: #eeece4;
+  border-color: #334253;
+  background: var(--empty);
 }
 .slot-number {
   font-family: "Space Mono", monospace;
@@ -541,7 +559,7 @@ footer {
   position: absolute;
   right: 4px;
   bottom: 2px;
-  color: #78836d;
+  color: var(--muted);
   font-size: 9px;
   max-width: calc(100% - 8px);
   overflow: hidden;
@@ -553,7 +571,7 @@ footer {
 }
 .special-section {
   margin-top: 24px;
-  border-top: 1px solid #d9d8cf;
+  border-top: 1px solid var(--border);
 }
 @media (max-width: 640px) {
   .album-controls {
