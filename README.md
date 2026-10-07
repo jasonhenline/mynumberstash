@@ -44,10 +44,10 @@ local public key, create an account, and confirm its email in
 collection. Email stays in the local mail viewer; no email provider is required.
 Supabase Studio is available at **http://localhost:54323**.
 
-The normal four-hour cooldown applies locally. Connection details and the login
-session persist in your browser. Retry an interrupted pack opening with the
-app's retry button to recover the original pack without being charged another
-opening.
+The normal allowance rules apply locally: one refill every four hours, up to six
+saved packs. Connection details and the login session persist in your browser.
+Retry an interrupted pack opening with the app's retry button to recover the
+original pack without being charged another opening.
 
 Stop the web/function processes with Ctrl+C, then use `pnpm backend:stop` to
 stop the containers while retaining local data. These commands do not deploy

@@ -119,7 +119,9 @@ export function createGameHandler(
             packsOpened: player.packs_opened,
             negativesUnlocked:
               player.distinct_cards >= GAME_RULES.negativeUnlockDistinctCards,
-            nextPackAvailableAt: player.next_pack_available_at,
+            packAllowances: player.pack_allowances,
+            maxPackAllowances: 6,
+            nextAllowanceAt: player.next_pack_available_at,
             serverTime: new Date().toISOString(),
           });
         }
@@ -134,7 +136,7 @@ export function createGameHandler(
           headers["Retry-After"] = String(Math.max(
             1,
             Math.ceil(
-              (Date.parse(pack.nextPackAvailableAt) - Date.now()) / 1000,
+              (Date.parse(pack.nextAllowanceAt) - Date.now()) / 1000,
             ),
           ));
           return json(pack, 429);

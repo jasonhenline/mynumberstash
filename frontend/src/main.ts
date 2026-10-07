@@ -17,10 +17,17 @@ type Player = {
   distinctCards: number;
   packsOpened: number;
   negativesUnlocked: boolean;
-  nextPackAvailableAt: string | null;
+  packAllowances: number;
+  maxPackAllowances: number;
+  nextAllowanceAt: string | null;
   serverTime: string;
 };
-type Pack = { cards: Card[]; replayed: boolean; nextPackAvailableAt: string };
+type Pack = {
+  cards: Card[];
+  replayed: boolean;
+  packAllowances: number;
+  nextAllowanceAt: string;
+};
 type Connection = { url: string; key: string };
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -73,7 +80,7 @@ function render() {
     localDevelopment ? "LOCAL PLAYGROUND" : "ENDLESS FINDS"
   }</span></header>
     <main>
-      <div class="intro"><span class="eyebrow">A LITTLE STASH OF INFINITY</span><h1>Every number<br>has a place.</h1><p>Ten cards every four hours. A stash that keeps growing.</p></div>
+      <div class="intro"><span class="eyebrow">A LITTLE STASH OF INFINITY</span><h1>Every number<br>has a place.</h1><p>Ten cards per pack. Save up to six packs, with one refilling every four hours.</p></div>
       ${
     message
       ? `<div class="notice ${messageKind}" role="${
@@ -136,7 +143,7 @@ function gameMarkup(): string {
   }</span><button class="text-button" id="signout" ${
     busy ? "disabled" : ""
   }>Sign out</button></div>
-    <section class="pack-panel"><div><span class="eyebrow">YOUR NEXT DISCOVERY</span><h2>Room for ten more.</h2><p id="pack-time" aria-live="off">Checking your next pack…</p>
+    <section class="pack-panel"><div><span class="eyebrow">YOUR NEXT DISCOVERY</span><h2>Room for ten more.</h2><p id="pack-balance">Checking your packs…</p><p id="pack-time" aria-live="off">Checking your next refill…</p>
       <button id="open-pack" ${busy || !player ? "disabled" : ""}>${
     busy ? "Working…" : pendingId ? "Retry pack opening" : "Open a pack"
   } <span>＋</span></button></div>
@@ -178,33 +185,44 @@ function gameMarkup(): string {
 
 function updateCountdown() {
   const text = document.querySelector("#pack-time");
+  const balance = document.querySelector("#pack-balance");
   const button = document.querySelector<HTMLButtonElement>("#open-pack");
   if (!text || !button) return;
-  const remaining = player?.nextPackAvailableAt
-    ? Math.max(
-      0,
-      Math.ceil(
-        (Date.parse(player.nextPackAvailableAt) - Date.now() - clockOffset) /
-          1000,
-      ),
-    )
+  const now = Date.now() + clockOffset;
+  const interval = 4 * 60 * 60 * 1000;
+  const next = player?.nextAllowanceAt
+    ? Date.parse(player.nextAllowanceAt)
+    : null;
+  const refills = next !== null && next <= now
+    ? 1 + Math.floor((now - next) / interval)
     : 0;
+  const available = player
+    ? Math.min(player.maxPackAllowances, player.packAllowances + refills)
+    : 0;
+  const full = player && available === player.maxPackAllowances;
+  const remaining = next !== null
+    ? Math.max(0, Math.ceil((next + refills * interval - now) / 1000))
+    : 0;
+  if (balance && player) {
+    balance.textContent =
+      `${available} of ${player.maxPackAllowances} packs available`;
+  }
   text.textContent = pendingId
     ? "An opening needs confirmation. Retry to recover the same pack."
     : !player
     ? "Loading your game…"
-    : remaining === 0
-    ? "Your next pack is ready."
-    : `Next pack in ${Math.floor(remaining / 3600)}h ${
+    : full
+    ? "Your pack balance is full. Open a pack to start refilling."
+    : `Next allowance in ${Math.floor(remaining / 3600)}h ${
       Math.floor(remaining % 3600 / 60)
     }m ${remaining % 60}s`;
-  button.disabled = busy || !player || (remaining > 0 && !pendingId);
+  button.disabled = busy || !player || (available === 0 && !pendingId);
 }
 
 class ApiError extends Error {
   constructor(
     public status: number,
-    public payload: { error?: string; nextPackAvailableAt?: string },
+    public payload: { error?: string; nextAllowanceAt?: string },
   ) {
     super(
       payload.error === "cooldown"
@@ -400,7 +418,10 @@ function bind() {
           pack = await api<Pack>("/packs/open", { requestId: pendingId });
           localStorage.removeItem(storageKey);
           pendingId = null;
-          if (player) player.nextPackAvailableAt = pack.nextPackAvailableAt;
+          if (player) {
+            player.nextAllowanceAt = pack.nextAllowanceAt;
+            player.packAllowances = pack.packAllowances;
+          }
           notify(
             pack.replayed
               ? "Recovered your original pack."
@@ -413,8 +434,9 @@ function bind() {
           ) {
             localStorage.removeItem(storageKey);
             pendingId = null;
-            if (player && error.payload.nextPackAvailableAt) {
-              player.nextPackAvailableAt = error.payload.nextPackAvailableAt;
+            if (player && error.payload.nextAllowanceAt) {
+              player.nextAllowanceAt = error.payload.nextAllowanceAt;
+              if (error.status === 429) player.packAllowances = 0;
             }
           }
           throw error;

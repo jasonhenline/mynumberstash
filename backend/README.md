@@ -2,16 +2,19 @@
 
 Supabase supplies authentication and Postgres. The `game-api` Edge Function
 verifies each caller using Supabase Auth and runs the game rules in TypeScript.
-A restricted Postgres function locks the player's record, enforces the cooldown,
-and saves the entire award in one transaction. Browser clients cannot call the
-award function or write their own collection.
+A restricted Postgres function locks the player's record, refills and spends
+pack allowances, and saves the entire award in one transaction. Browser clients
+cannot call the award function or write their own collection.
 
 ## Current game rules
 
-- A new player can open a pack immediately.
+- A new player starts with one pack allowance and can open it immediately.
 - Every pack contains ten cards; duplicates increase quantities.
-- The next pack is available four hours after the successful opening. Packs do
-  not accumulate while the player is away.
+- One allowance refills every four hours, up to six stored allowances. Opening a
+  pack spends one without resetting the refill timer. Refills pause at six;
+  opening from a full balance starts a new four-hour refill cycle.
+- Refills are calculated when loading player status or opening a pack, under a
+  database row lock. No background scheduler is required.
 - Nonnegative integers follow `P(N=n) = (1-r)r^n`, with `r=0.9` (mean 9).
 - After collecting 50 distinct cards, each draw has a 25% chance of being
   negative. Negative magnitude is `N+1`, so there is no negative zero. Newly
@@ -24,14 +27,14 @@ award function or write their own collection.
   cards are not seeded or awarded yet.
 
 Edit `supabase/functions/_shared/cards.ts` to adjust probabilities and
-progression. Pack size and cooldown are also enforced in SQL: changing those
-requires a migration.
+progression. Pack size, refill interval, and allowance cap are also enforced in
+SQL: changing those requires a migration.
 
 ## Development
 
 For an interactive local web app with signup and login, follow the
 [root setup guide](../README.md). The frontend uses the same authenticated API
-and enforces the normal cooldown; no authentication bypass is required.
+and enforces the normal allowance rules; no authentication bypass is required.
 
 Requirements: Deno 2, Node/npm (for the CLI), and Docker for the local Supabase
 stack. The SQL migrations are the schema's source of truth, including
@@ -96,25 +99,30 @@ Successful pack response:
   "requestId": "10000000-0000-4000-8000-000000000001",
   "cards": [{ "kind": "integer", "value": "0" }],
   "openedAt": "2026-10-06T18:00:00Z",
-  "nextPackAvailableAt": "2026-10-06T22:00:00Z",
+  "packAllowances": 0,
+  "nextAllowanceAt": "2026-10-06T22:00:00Z",
   "replayed": false
 }
 ```
 
 The example abbreviates the cards array; actual responses contain ten cards.
-Cooldown responses use HTTP 429 with `error: "cooldown"`, `nextPackAvailableAt`,
-and a `Retry-After` header. A progression conflict returns HTTP 409; retry with
-the same request ID. Invalid input returns 400, oversized bodies 413, invalid
+`GET /me` returns `packAllowances`, `maxPackAllowances` (6), and
+`nextAllowanceAt` (null when full). This timestamp is the next refill, even when
+packs are already available. Pack responses include the balance after spending;
+retries return the original snapshot. Reload `/me` for current status. Cooldown
+responses use HTTP 429 with `error: "cooldown"`, `nextAllowanceAt`, and a
+`Retry-After` header. A progression conflict returns HTTP 409; retry with the
+same request ID. Invalid input returns 400, oversized bodies 413, invalid
 sessions 401. Collection pagination is by stable card key, not numerical order;
 pass `nextCursor` back as the URL-encoded `cursor` parameter until it is null.
 
 ## Deployment
 
 The initial database migration and `game-api` are deployed to project
-`csmhjxjmxhdsrcqbgrxp`. The production origin is
-`https://mynumberstash.com`. The hosted Auth Site URL uses that origin, with
-email confirmation enabled. Auth redirects and CORS also allow the existing
-`https://number-club.pages.dev` address.
+`csmhjxjmxhdsrcqbgrxp`. The production origin is `https://mynumberstash.com`.
+The hosted Auth Site URL uses that origin, with email confirmation enabled. Auth
+redirects and CORS also allow the existing `https://number-club.pages.dev`
+address.
 
 For updates, sign in with the Supabase CLI and run from the repository root:
 
@@ -141,7 +149,7 @@ credentials remain outside the repository. To recreate the setup:
    | Setting      | Value                                             |
    | ------------ | ------------------------------------------------- |
    | Sender name  | My Number Stash                                   |
-   | Sender email | `accounts@mynumberstash.com`                       |
+   | Sender email | `accounts@mynumberstash.com`                      |
    | SMTP host    | `smtp.resend.com`                                 |
    | Port         | `465`                                             |
    | Username     | `resend`                                          |

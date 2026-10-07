@@ -1,5 +1,5 @@
 import { PGlite } from "@electric-sql/pglite";
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertAlmostEquals, assertEquals, assertRejects } from "@std/assert";
 
 // Run real Postgres SQL in memory; Supabase's auth schema/roles are stubbed here.
 // This verifies transactions and permissions, but not multi-connection locking.
@@ -28,6 +28,14 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
         ),
       ),
     );
+    await db.exec(
+      await Deno.readTextFile(
+        new URL(
+          "../supabase/migrations/20261007000000_pack_allowances.sql",
+          import.meta.url,
+        ),
+      ),
+    );
     const user = "00000000-0000-4000-8000-000000000001";
     const other = "00000000-0000-4000-8000-000000000002";
     const id = "10000000-0000-4000-8000-000000000001";
@@ -44,10 +52,12 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
     const first = await award(id);
     assertEquals(first.replayed, false);
     assertEquals(first.cards, cards);
-    assertEquals(
-      Date.parse(first.nextPackAvailableAt as string) -
+    assertEquals(first.packAllowances, 0);
+    assertAlmostEquals(
+      Date.parse(first.nextAllowanceAt as string) -
         Date.parse(first.openedAt as string),
       4 * 60 * 60 * 1000,
+      1000,
     );
     assertEquals((await award(id)).replayed, true);
     assertEquals((await award(secondId)).error, "cooldown");
@@ -73,6 +83,13 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
     malformed[9] = { kind: "integer", value: "01" };
     await assertRejects(() => award(secondId, malformed, 1));
     assertEquals(
+      (await db.query(
+        "select pack_allowances from public.players where user_id = $1",
+        [user],
+      )).rows,
+      [{ pack_allowances: 1 }],
+    );
+    assertEquals(
       (await db.query("select quantity from public.collection")).rows,
       [{ quantity: 10 }],
     );
@@ -94,7 +111,9 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
     // Special cards need an existing definition, and a failed FK rolls back the award.
     const specialRequest = "10000000-0000-4000-8000-000000000003";
     const specialCards = Array(10).fill({ kind: "special", id: "pi" });
-    await db.exec("update public.players set next_pack_available_at = null");
+    await db.exec(
+      "update public.players set pack_allowances = 6, next_pack_available_at = null",
+    );
     await assertRejects(() =>
       db.query(
         "select public.award_pack($1, $2, 2, $3::jsonb)",
@@ -114,6 +133,86 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
         "select quantity from public.collection where special_id = 'pi'",
       )).rows,
       [{ quantity: 10 }],
+    );
+
+    // Thirteen hours from an empty balance yields three packs, with three hours left.
+    await db.query(
+      `update public.players set pack_allowances = 0,
+      next_pack_available_at = clock_timestamp() - interval '9 hours' where user_id = $1`,
+      [user],
+    );
+    const refilled = (await db.query<
+      { player: { pack_allowances: number; next_pack_available_at: string } }
+    >(
+      "select to_jsonb(public.ensure_player($1)) as player",
+      [user],
+    )).rows[0].player;
+    assertEquals(refilled.pack_allowances, 3);
+    assertAlmostEquals(
+      Date.parse(refilled.next_pack_available_at) - Date.now(),
+      3 * 3600000,
+      2000,
+    );
+    for (let i = 0; i < 3; i++) {
+      const opened = await award(
+        `20000000-0000-4000-8000-00000000000${i}`,
+        cards,
+        3,
+      );
+      assertEquals(opened.packAllowances, 2 - i);
+      assertEquals(opened.nextAllowanceAt, refilled.next_pack_available_at);
+    }
+    assertEquals(
+      (await award("20000000-0000-4000-8000-000000000009", cards, 3)).error,
+      "cooldown",
+    );
+
+    // Exact refill boundary is included; full balances discard surplus time.
+    await db.query(
+      `update public.players set pack_allowances = 0,
+      next_pack_available_at = clock_timestamp() where user_id = $1`,
+      [user],
+    );
+    const boundary = (await db.query<{ player: { pack_allowances: number } }>(
+      "select to_jsonb(public.ensure_player($1)) as player",
+      [user],
+    )).rows[0].player;
+    assertEquals(boundary.pack_allowances, 1);
+    await db.query(
+      `update public.players set pack_allowances = 0,
+      next_pack_available_at = clock_timestamp() - interval '10 days' where user_id = $1`,
+      [user],
+    );
+    const capped = (await db.query<
+      { player: { pack_allowances: number; next_pack_available_at: null } }
+    >(
+      "select to_jsonb(public.ensure_player($1)) as player",
+      [user],
+    )).rows[0].player;
+    assertEquals(capped.pack_allowances, 6);
+    assertEquals(capped.next_pack_available_at, null);
+    const fromFull = await award(
+      "30000000-0000-4000-8000-000000000001",
+      cards,
+      3,
+    );
+    assertEquals(fromFull.packAllowances, 5);
+    assertAlmostEquals(
+      Date.parse(fromFull.nextAllowanceAt as string) -
+        Date.parse(fromFull.openedAt as string),
+      4 * 3600000,
+      1000,
+    );
+    assertEquals(
+      (await award("30000000-0000-4000-8000-000000000001", cards, 3)).replayed,
+      true,
+    );
+    assertEquals(
+      (await db.query(
+        "select pack_allowances from public.players where user_id = $1",
+        [user],
+      )).rows,
+      [{ pack_allowances: 5 }],
     );
 
     await db.exec("reset role; set role authenticated");

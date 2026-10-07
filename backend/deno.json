@@ -1,4 +1,7 @@
 {
+  "fmt": {
+    "exclude": ["supabase/.temp", "production/supabase/.temp"]
+  },
   "tasks": {
     "check": "deno check supabase/functions/game-api/index.ts",
     "test": "deno test --allow-read --allow-env tests/",

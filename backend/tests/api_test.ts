@@ -135,6 +135,8 @@ Deno.test("pack endpoint uses verified identity, generates cards, and reports co
           user_id: userId,
           distinct_cards: 0,
           packs_opened: 0,
+          pack_allowances: 1,
+          next_pack_available_at: "2026-10-07T22:00:00Z",
         });
       }
       if (path === "/rest/v1/rpc/award_pack") {
@@ -151,7 +153,7 @@ Deno.test("pack endpoint uses verified identity, generates cards, and reports co
         awards++;
         return Response.json({
           error: "cooldown",
-          nextPackAvailableAt: new Date(Date.now() + 60000).toISOString(),
+          nextAllowanceAt: new Date(Date.now() + 60000).toISOString(),
         });
       }
       throw new Error(`Unexpected request path: ${path}`);
@@ -170,4 +172,14 @@ Deno.test("pack endpoint uses verified identity, generates cards, and reports co
   assertEquals(response.status, 429);
   assertEquals((await response.json()).error, "cooldown");
   assertEquals(awards, 1);
+  const me = await handler(
+    new Request("http://localhost/game-api/me", {
+      headers: { Authorization: "Bearer test-user-token" },
+    }),
+  );
+  assertEquals(me.status, 200);
+  const player = await me.json();
+  assertEquals(player.packAllowances, 1);
+  assertEquals(player.maxPackAllowances, 6);
+  assertEquals(player.nextAllowanceAt, "2026-10-07T22:00:00Z");
 });

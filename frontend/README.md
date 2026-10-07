@@ -5,7 +5,8 @@ provides:
 
 - A local connection screen accepting only public keys and loopback HTTP URLs.
 - Email/password signup, confirmation through the local mail viewer, and login.
-- A pack-opening button and a countdown using the backend's server time.
+- A pack-opening button, balance of up to six packs, and refill countdown using
+  the backend's server time. The displayed balance updates as allowances refill.
 - Pack recovery with the same request ID after a lost response or page reload.
 - Collection quantities, numeric sorting, and pagination.
 - Session persistence and signout through Supabase Auth.
@@ -72,10 +73,11 @@ instead; use `pnpm build` from the repository root and `frontend/dist` as its
 output directory.
 
 The production domain is `https://mynumberstash.com`. In Cloudflare Pages,
-associate it with the `number-club` project under Custom domains and confirm
-the proposed DNS record. Wait for the domain to show Active before using it.
+associate it with the `number-club` project under Custom domains and confirm the
+proposed DNS record. Wait for the domain to show Active before using it.
 
 Supabase Auth uses that domain as its Site URL. Redirect URLs and the backend's
 `ALLOWED_ORIGINS` allow both it and `https://number-club.pages.dev`. Signup
 confirmation links return to the origin where signup started. Custom SMTP is
-configured through the dashboard; see [email setup](../backend/README.md#signup-email-delivery).
+configured through the dashboard; see
+[email setup](../backend/README.md#signup-email-delivery).

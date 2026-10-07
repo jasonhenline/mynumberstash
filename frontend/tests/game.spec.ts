@@ -16,7 +16,9 @@ const basePlayer = {
   distinctCards: 0,
   packsOpened: 0,
   negativesUnlocked: false,
-  nextPackAvailableAt: null,
+  packAllowances: 1,
+  maxPackAllowances: 6,
+  nextAllowanceAt: null,
 };
 
 async function mockAuth(page: Page) {
@@ -97,7 +99,8 @@ test("signup uses local email confirmation; login, opening, collection, and sign
             ...basePlayer,
             distinctCards: opened ? 10 : 0,
             packsOpened: opened ? 1 : 0,
-            nextPackAvailableAt: opened
+            packAllowances: opened ? 0 : 1,
+            nextAllowanceAt: opened
               ? new Date(Date.now() + 14400000).toISOString()
               : null,
             serverTime: new Date().toISOString(),
@@ -119,7 +122,8 @@ test("signup uses local email confirmation; login, opening, collection, and sign
         json: {
           cards,
           replayed: false,
-          nextPackAvailableAt: new Date(Date.now() + 14400000).toISOString(),
+          packAllowances: 0,
+          nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
         },
       });
     },
@@ -142,7 +146,7 @@ test("signup uses local email confirmation; login, opening, collection, and sign
     .toHaveCount(10);
   await expect(page.getByRole("button", { name: "Open a pack" }))
     .toBeDisabled();
-  await expect(page.locator("#pack-time")).toContainText("Next pack in");
+  await expect(page.locator("#pack-time")).toContainText("Next allowance in");
   await page.screenshot({
     path: "test-results/collection-desktop.png",
     fullPage: true,
@@ -187,7 +191,8 @@ test("an interrupted opening retains its request ID across reload and recovers t
           headers,
           json: {
             ...basePlayer,
-            nextPackAvailableAt: failed
+            packAllowances: failed ? 0 : 1,
+            nextAllowanceAt: failed
               ? new Date(Date.now() + 14400000).toISOString()
               : null,
             serverTime: new Date().toISOString(),
@@ -212,7 +217,8 @@ test("an interrupted opening retains its request ID across reload and recovers t
         json: {
           cards,
           replayed: true,
-          nextPackAvailableAt: new Date(Date.now() + 14400000).toISOString(),
+          packAllowances: 0,
+          nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
         },
       });
     },
@@ -244,3 +250,80 @@ test("connection rejects server keys and remote instances", async ({ page }) => 
   await page.getByRole("button", { name: "Connect to local game" }).click();
   await expect(page.getByRole("alert")).toContainText("local Supabase");
 });
+
+for (const initial of [3, 6]) {
+  test(`${initial} saved allowances can be spent without waiting for a refill`, async ({ page }) => {
+    await mockAuth(page);
+    let available = initial;
+    let next = initial === 6
+      ? null
+      : new Date(Date.now() + 3 * 3600000).toISOString();
+    const requests = new Set<string>();
+    await page.route(
+      "http://127.0.0.1:54321/functions/v1/game-api/**",
+      async (route) => {
+        const headers = {
+          "Access-Control-Allow-Origin": "http://localhost:5173",
+          "Access-Control-Allow-Headers": "*",
+        };
+        if (route.request().method() === "OPTIONS") {
+          return route.fulfill({ status: 204, headers });
+        }
+        const path = new URL(route.request().url()).pathname;
+        if (path.endsWith("/me")) {
+          return route.fulfill({
+            headers,
+            json: {
+              ...basePlayer,
+              packAllowances: available,
+              nextAllowanceAt: next,
+              serverTime: new Date().toISOString(),
+            },
+          });
+        }
+        if (path.endsWith("/collection")) {
+          return route.fulfill({
+            headers,
+            json: { cards: [], nextCursor: null },
+          });
+        }
+        const id = route.request().postDataJSON().requestId;
+        expect(requests.has(id)).toBe(false);
+        requests.add(id);
+        available--;
+        next ??= new Date(Date.now() + 4 * 3600000).toISOString();
+        return route.fulfill({
+          headers,
+          json: {
+            cards,
+            replayed: false,
+            packAllowances: available,
+            nextAllowanceAt: next,
+          },
+        });
+      },
+    );
+    await connect(page);
+    await signIn(page);
+    await expect(page.locator("#pack-balance")).toHaveText(
+      `${initial} of 6 packs available`,
+    );
+    if (initial === 6) {
+      await expect(page.locator("#pack-time")).toContainText("balance is full");
+    }
+    for (let count = initial; count > 0; count--) {
+      await page.getByRole("button", { name: "Open a pack" }).click();
+      await expect(page.locator("#pack-balance")).toHaveText(
+        `${count - 1} of 6 packs available`,
+      );
+      if (count > 1) {
+        await expect(page.getByRole("button", { name: "Open a pack" }))
+          .toBeEnabled();
+      }
+    }
+    await expect(page.getByRole("button", { name: "Open a pack" }))
+      .toBeDisabled();
+    await expect(page.locator("#pack-time")).toContainText("Next allowance in");
+    expect(requests.size).toBe(initial);
+  });
+}
