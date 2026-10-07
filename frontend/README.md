@@ -71,9 +71,7 @@ Cloudflare's built-in Git integration requires creating a project in that mode
 instead; use `pnpm build` from the repository root and `frontend/dist` as its
 output directory.
 
-Set `https://number-club.pages.dev` as the Supabase Auth Site URL and add it to
-the allowed redirect URLs. Configure SMTP for signup email delivery. Set the
-backend's `ALLOWED_ORIGINS` to `https://number-club.pages.dev`. The site can be
-hosted first; collections and pack opening will work after the backend
-migrations and `game-api` function are deployed. See
-[backend deployment](../backend/README.md#deployment).
+The Supabase Auth Site URL, redirect URL, and backend's `ALLOWED_ORIGINS` are
+now configured for `https://number-club.pages.dev`. The initial database and
+`game-api` are deployed. Custom SMTP for public signup email delivery remains
+pending; see [email setup](../backend/README.md#signup-email-delivery-pending).

@@ -7,6 +7,7 @@
     "build": "pnpm --dir frontend build",
     "preview": "pnpm --dir frontend preview",
     "deploy:web": "pnpm build && wrangler pages deploy frontend/dist --project-name number-club --branch main",
+    "deploy:backend": "supabase --workdir backend db push --project-ref csmhjxjmxhdsrcqbgrxp --yes && supabase --workdir backend secrets set ALLOWED_ORIGINS=https://number-club.pages.dev --project-ref csmhjxjmxhdsrcqbgrxp && supabase --workdir backend functions deploy game-api --project-ref csmhjxjmxhdsrcqbgrxp --use-api && supabase --workdir backend/production config push --project-ref csmhjxjmxhdsrcqbgrxp --yes",
     "test:web": "pnpm --dir frontend test",
     "backend:start": "supabase --workdir backend start",
     "backend:serve": "supabase --workdir backend functions serve game-api",

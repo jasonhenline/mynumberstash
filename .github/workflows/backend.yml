@@ -51,6 +51,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npx --yes supabase@2.120.0 link --project-ref "$SUPABASE_PROJECT_REF"
-      - run: npx --yes supabase@2.120.0 db push
-      - run: npx --yes supabase@2.120.0 functions deploy game-api
+      - run: npx --yes supabase@2.118.0 link --project-ref "$SUPABASE_PROJECT_REF"
+      - run: npx --yes supabase@2.118.0 db push --yes
+      - run: npx --yes supabase@2.118.0 secrets set ALLOWED_ORIGINS=https://number-club.pages.dev
+      - run: npx --yes supabase@2.118.0 functions deploy game-api --use-api
+      - run: npx --yes supabase@2.118.0 --workdir production config push --project-ref "$SUPABASE_PROJECT_REF" --yes

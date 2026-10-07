@@ -1,0 +1,10 @@
+# Only declared properties are pushed; other hosted settings are preserved.
+# Local development continues to use backend/supabase/config.toml.
+project_id = "number-collection-production"
+
+[auth]
+site_url = "https://number-club.pages.dev"
+additional_redirect_urls = ["https://number-club.pages.dev"]
+
+[auth.email]
+enable_confirmations = true

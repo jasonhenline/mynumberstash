@@ -110,6 +110,54 @@ pass `nextCursor` back as the URL-encoded `cursor` parameter until it is null.
 
 ## Deployment
 
+The initial database migration and `game-api` are deployed to project
+`csmhjxjmxhdsrcqbgrxp`. The production origin is
+`https://number-club.pages.dev`. The hosted Auth Site URL and redirect URL are
+configured for that origin, with email confirmation enabled.
+
+For updates, sign in with the Supabase CLI and run from the repository root:
+
+```sh
+pnpm deploy:backend
+```
+
+This applies pending migrations, sets the production CORS origin, deploys the
+function through Supabase's bundling API, and applies the declared Auth settings
+in `backend/production/supabase/config.toml`. The separate production config
+keeps local development URLs out of hosted Auth settings.
+
+### Signup email delivery (pending)
+
+Public signup email delivery needs a registered sender domain and a Resend
+account. The website can stay on `number-club.pages.dev` while using a separate
+sender domain. Supabase's default mail service only sends to organization team
+addresses and is intended for testing.
+
+After registering a domain:
+
+1. Add and verify the domain in Resend using its supplied DNS records.
+2. Create a Resend sending API key.
+3. In Supabase Authentication → Email → SMTP Settings, enable custom SMTP and
+   set:
+
+   | Setting      | Value                                             |
+   | ------------ | ------------------------------------------------- |
+   | Sender name  | Number Club                                       |
+   | Sender email | `accounts@YOUR_VERIFIED_DOMAIN`                   |
+   | SMTP host    | `smtp.resend.com`                                 |
+   | Port         | `465`                                             |
+   | Username     | `resend`                                          |
+   | Password     | Resend API key, entered directly in the dashboard |
+
+4. Save, then create an account from the website to verify confirmation delivery
+   and the return link.
+
+Do not commit SMTP passwords or API keys. The production config intentionally
+leaves SMTP settings unmanaged so dashboard credentials are preserved on deploy.
+See [Resend's Supabase guide](https://resend.com/docs/send-with-supabase-smtp).
+
+### Manual deployment to another project
+
 Create one Supabase project, then run from `backend/`:
 
 ```sh
