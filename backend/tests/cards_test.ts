@@ -35,12 +35,21 @@ Deno.test("geometric distribution has the expected mean and zero frequency", () 
   };
   let sum = 0;
   let zeros = 0;
-  for (let i = 0; i < 20000; i++) {
-    const n = Number(geometricInteger(0.9, random));
+  const count = 20000;
+  const ratio = GAME_RULES.geometricRatio;
+  const expectedMean = ratio / (1 - ratio);
+  const expectedZero = 1 - ratio;
+  const meanTolerance = 5 * Math.sqrt(ratio) / (1 - ratio) / Math.sqrt(count);
+  const zeroTolerance = 5 * Math.sqrt(expectedZero * ratio / count);
+  for (let i = 0; i < count; i++) {
+    const n = Number(geometricInteger(ratio, random));
     sum += n;
     if (n === 0) zeros++;
   }
-  if (Math.abs(sum / 20000 - 9) > 0.3 || Math.abs(zeros / 20000 - 0.1) > 0.01) {
+  if (
+    Math.abs(sum / count - expectedMean) > meanTolerance ||
+    Math.abs(zeros / count - expectedZero) > zeroTolerance
+  ) {
     throw new Error(
       "Distribution differs from expected geometric probabilities",
     );

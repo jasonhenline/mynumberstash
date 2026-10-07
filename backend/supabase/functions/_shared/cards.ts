@@ -4,7 +4,8 @@ export type Card =
 
 export const GAME_RULES = {
   packSize: 10,
-  geometricRatio: 0.9,
+  // Matches flooring an exponential random variable with scale 50.
+  geometricRatio: Math.exp(-1 / 50),
   negativeUnlockDistinctCards: 50,
   negativeProbability: 0.25,
 } as const;

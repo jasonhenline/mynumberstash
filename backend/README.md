@@ -15,7 +15,9 @@ cannot call the award function or write their own collection.
   opening from a full balance starts a new four-hour refill cycle.
 - Refills are calculated when loading player status or opening a pack, under a
   database row lock. No background scheduler is required.
-- Nonnegative integers follow `P(N=n) = (1-r)r^n`, with `r=0.9` (mean 9).
+- Nonnegative integers follow `P(N=n) = (1-r)r^n`, with `r=exp(-1/50)`. This
+  matches flooring exponential samples with scale 50: mean approximately 49.50
+  and standard deviation approximately 50.00, before negatives unlock.
 - After collecting 50 distinct cards, each draw has a 25% chance of being
   negative. Negative magnitude is `N+1`, so there is no negative zero. Newly
   unlocked cards become available starting with the next pack.
