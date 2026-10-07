@@ -63,17 +63,17 @@ function cardMarkup(card: Card, quantity?: number): string {
   }</span>
     <span class="number">${escape(label(card))}</span>
     <span class="card-footer">${
-    quantity === undefined ? "NUMBER CLUB" : `× ${escape(quantity)} collected`
+    quantity === undefined ? "MY NUMBER STASH" : `× ${escape(quantity)} stashed`
   }</span></div>`;
 }
 
 function render() {
   app.innerHTML = `
-    <header><a class="brand" href="/">N<span>°</span> <span class="brand-name">NUMBER CLUB</span></a><span class="environment"><i></i> ${
-    localDevelopment ? "LOCAL PLAYGROUND" : "COLLECT SOMETHING INFINITE"
+    <header><a class="brand" href="/">N<span>°</span> <span class="brand-name">MY NUMBER STASH</span></a><span class="environment"><i></i> ${
+    localDevelopment ? "LOCAL PLAYGROUND" : "ENDLESS FINDS"
   }</span></header>
     <main>
-      <div class="intro"><span class="eyebrow">A LITTLE COLLECTION OF INFINITY</span><h1>Every number<br>has a place.</h1><p>Ten cards. Four hours. A collection that keeps growing.</p></div>
+      <div class="intro"><span class="eyebrow">A LITTLE STASH OF INFINITY</span><h1>Every number<br>has a place.</h1><p>Ten cards every four hours. A stash that keeps growing.</p></div>
       ${
     message
       ? `<div class="notice ${messageKind}" role="${
@@ -85,7 +85,7 @@ function render() {
     !connection ? connectionMarkup() : !session ? authMarkup() : gameMarkup()
   }
     </main>
-    <footer><span>Small numbers. Endless possibilities.</span><span>NUMBER CLUB · 001</span></footer>`;
+    <footer><span>Small numbers. Endless possibilities.</span><span>MY NUMBER STASH · 001</span></footer>`;
   bind();
   updateCountdown();
 }
@@ -101,7 +101,7 @@ function connectionMarkup(): string {
 }
 
 function authMarkup(): string {
-  return `<section class="panel setup"><span class="eyebrow">YOUR COLLECTION STARTS HERE</span><h2>Welcome to the club.</h2>
+  return `<section class="panel setup"><span class="eyebrow">YOUR STASH STARTS HERE</span><h2>Start your number stash.</h2>
     <form id="auth-form">
       <label for="email">Email</label><input id="email" name="email" type="email" autocomplete="email" required placeholder="collector@example.com">
       <label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" minlength="6" required placeholder="At least 6 characters">
@@ -141,7 +141,7 @@ function gameMarkup(): string {
     busy ? "Working…" : pendingId ? "Retry pack opening" : "Open a pack"
   } <span>＋</span></button></div>
       <div class="pack-art" aria-hidden="true"><div class="art-card back">7</div><div class="art-card front">0<span>THE POSSIBILITIES BEGIN HERE</span></div></div></section>
-    <section class="stats" aria-label="Collection statistics"><div><strong>${
+    <section class="stats" aria-label="Stash statistics"><div><strong>${
     player?.distinctCards ?? "—"
   }</strong><span>Distinct numbers</span></div><div><strong>${
     player?.packsOpened ?? "—"
@@ -157,7 +157,7 @@ function gameMarkup(): string {
       }</div></section>`
       : ""
   }
-    <section><div class="section-heading"><h2>Your collection</h2><button id="refresh" class="text-button" ${
+    <section><div class="section-heading"><h2>Your stash</h2><button id="refresh" class="text-button" ${
     busy ? "disabled" : ""
   }>Refresh ↻</button></div>
       ${
@@ -165,7 +165,7 @@ function gameMarkup(): string {
       ? `<div class="cards">${
         sorted.map((item) => cardMarkup(item.card, item.quantity)).join("")
       }</div>`
-      : `<div class="empty"><span>∅</span><h3>A blank page, for now.</h3><p>Open your first pack to start collecting.</p></div>`
+      : `<div class="empty"><span>∅</span><h3>Your stash is empty, for now.</h3><p>Open your first pack and stash your first ten cards.</p></div>`
   }
       ${
     cursor
@@ -212,7 +212,7 @@ class ApiError extends Error {
         : payload.error === "unauthorized"
         ? "Your session has expired. Please sign in again."
         : payload.error === "progression_changed"
-        ? "Your collection changed. Please retry this opening."
+        ? "Your stash changed. Please retry this opening."
         : "The game request failed. Please try again.",
     );
   }
@@ -404,7 +404,7 @@ function bind() {
           notify(
             pack.replayed
               ? "Recovered your original pack."
-              : "Ten new numbers to make your own.",
+              : "Ten more cards added to your stash.",
           );
           await loadGame();
         } catch (error) {
@@ -460,7 +460,7 @@ function connect(config: Connection) {
           notify(
             localDevelopment
               ? "Could not load the game. Check that the local backend and Edge Function are running, then refresh."
-              : "Could not load your collection. Please try refreshing in a moment.",
+              : "Could not load your stash. Please try refreshing in a moment.",
             "error",
           )
         );

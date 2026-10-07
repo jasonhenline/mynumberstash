@@ -41,7 +41,7 @@ test("production automatically uses hosted Supabase and provides normal email co
     },
   );
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Welcome to the club." }))
+  await expect(page.getByRole("heading", { name: "Start your number stash." }))
     .toBeVisible();
   await expect(page.getByLabel("Publishable or anon key")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Change connection" }))

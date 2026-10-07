@@ -160,7 +160,7 @@ test("signup uses local email confirmation; login, opening, collection, and sign
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("button", { name: "Sign in", exact: true }))
     .toBeVisible();
-  await expect(page.getByRole("heading", { name: "Your collection" }))
+  await expect(page.getByRole("heading", { name: "Your stash" }))
     .toHaveCount(0);
 });
 
