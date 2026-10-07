@@ -69,7 +69,8 @@ app details.
 
 ## Production frontend
 
-Live frontend: **https://number-club.pages.dev**. Publish updates with
+Production domain: **https://mynumberstash.com**; the existing
+**https://number-club.pages.dev** address also works. Publish updates with
 `pnpm deploy:web` after signing in to Cloudflare with Wrangler.
 
 `pnpm build` creates the production frontend in `frontend/dist/`, automatically

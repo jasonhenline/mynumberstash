@@ -71,7 +71,11 @@ Cloudflare's built-in Git integration requires creating a project in that mode
 instead; use `pnpm build` from the repository root and `frontend/dist` as its
 output directory.
 
-The Supabase Auth Site URL, redirect URL, and backend's `ALLOWED_ORIGINS` are
-now configured for `https://number-club.pages.dev`. The initial database and
-`game-api` are deployed. Custom SMTP for public signup email delivery remains
-pending; see [email setup](../backend/README.md#signup-email-delivery-pending).
+The production domain is `https://mynumberstash.com`. In Cloudflare Pages,
+associate it with the `number-club` project under Custom domains and confirm
+the proposed DNS record. Wait for the domain to show Active before using it.
+
+Supabase Auth uses that domain as its Site URL. Redirect URLs and the backend's
+`ALLOWED_ORIGINS` allow both it and `https://number-club.pages.dev`. Signup
+confirmation links return to the origin where signup started. Custom SMTP is
+configured through the dashboard; see [email setup](../backend/README.md#signup-email-delivery).

@@ -3,8 +3,8 @@
 project_id = "number-collection-production"
 
 [auth]
-site_url = "https://number-club.pages.dev"
-additional_redirect_urls = ["https://number-club.pages.dev"]
+site_url = "https://mynumberstash.com"
+additional_redirect_urls = ["https://mynumberstash.com", "https://number-club.pages.dev"]
 
 [auth.email]
 enable_confirmations = true

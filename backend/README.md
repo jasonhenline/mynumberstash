@@ -112,8 +112,9 @@ pass `nextCursor` back as the URL-encoded `cursor` parameter until it is null.
 
 The initial database migration and `game-api` are deployed to project
 `csmhjxjmxhdsrcqbgrxp`. The production origin is
-`https://number-club.pages.dev`. The hosted Auth Site URL and redirect URL are
-configured for that origin, with email confirmation enabled.
+`https://mynumberstash.com`. The hosted Auth Site URL uses that origin, with
+email confirmation enabled. Auth redirects and CORS also allow the existing
+`https://number-club.pages.dev` address.
 
 For updates, sign in with the Supabase CLI and run from the repository root:
 
@@ -126,14 +127,11 @@ function through Supabase's bundling API, and applies the declared Auth settings
 in `backend/production/supabase/config.toml`. The separate production config
 keeps local development URLs out of hosted Auth settings.
 
-### Signup email delivery (pending)
+### Signup email delivery
 
-Public signup email delivery needs a registered sender domain and a Resend
-account. The website can stay on `number-club.pages.dev` while using a separate
-sender domain. Supabase's default mail service only sends to organization team
-addresses and is intended for testing.
-
-After registering a domain:
+Public signup email delivery uses Resend with the verified sender domain
+`mynumberstash.com`, configured directly in Supabase's dashboard. SMTP
+credentials remain outside the repository. To recreate the setup:
 
 1. Add and verify the domain in Resend using its supplied DNS records.
 2. Create a Resend sending API key.
@@ -142,8 +140,8 @@ After registering a domain:
 
    | Setting      | Value                                             |
    | ------------ | ------------------------------------------------- |
-   | Sender name  | Number Club                                       |
-   | Sender email | `accounts@YOUR_VERIFIED_DOMAIN`                   |
+   | Sender name  | My Number Stash                                   |
+   | Sender email | `accounts@mynumberstash.com`                       |
    | SMTP host    | `smtp.resend.com`                                 |
    | Port         | `465`                                             |
    | Username     | `resend`                                          |
