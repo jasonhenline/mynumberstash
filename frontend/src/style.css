@@ -461,3 +461,118 @@ footer {
     flex-direction: column;
   }
 }
+
+.album-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.page-navigation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.page-navigation button {
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+#page-range {
+  flex: 1;
+  text-align: center;
+  font-family: "Space Mono", monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+#jump-form {
+  display: grid;
+  grid-template-columns: 55px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+#jump-form label {
+  margin: 0;
+  font-size: 11px;
+}
+#jump-form input {
+  min-width: 0;
+  padding: 8px;
+  font-size: 12px;
+}
+#jump-form button {
+  margin: 0;
+  width: auto;
+  padding: 8px;
+  font-size: 12px;
+}
+.album-grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 5px;
+}
+.album-slot {
+  min-width: 0;
+  min-height: 40px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 4px 12px;
+  border: 1px solid #dadcd0;
+  border-radius: 4px;
+  background: #fcfbf5;
+}
+.album-slot.missing {
+  border-style: dashed;
+  border-color: #deded3;
+  background: #eeece4;
+}
+.slot-number {
+  font-family: "Space Mono", monospace;
+  font-size: 16px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slot-quantity {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  color: #78836d;
+  font-size: 9px;
+  max-width: calc(100% - 8px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.album-caption {
+  font-size: 11px;
+  margin: 12px 0 0;
+}
+.special-section {
+  margin-top: 24px;
+  border-top: 1px solid #d9d8cf;
+}
+@media (max-width: 640px) {
+  .album-controls {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .album-grid {
+    gap: 3px;
+  }
+  .album-slot {
+    min-height: 34px;
+    padding: 2px 1px 9px;
+  }
+  .slot-number {
+    font-size: 10px;
+  }
+  .slot-quantity {
+    font-size: 7px;
+    right: 2px;
+    bottom: 1px;
+  }
+}

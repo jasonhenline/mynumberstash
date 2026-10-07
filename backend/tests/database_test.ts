@@ -269,3 +269,121 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
     await db.close();
   }
 });
+
+Deno.test("album pages preserve integer boundaries, huge values, special labels, and RLS", async () => {
+  const db = new PGlite();
+  const user = "00000000-0000-4000-8000-000000000001";
+  const other = "00000000-0000-4000-8000-000000000002";
+  const huge = String(10n ** 120n + 123n);
+  try {
+    await db.exec(`
+      create role anon; create role authenticated; create role service_role bypassrls;
+      create schema auth; create table auth.users(id uuid primary key);
+      create function auth.uid() returns uuid language sql as
+        'select nullif(current_setting(''request.jwt.claim.sub'', true), '''')::uuid';
+      grant usage on schema public, auth to anon, authenticated, service_role;
+      grant execute on function auth.uid() to authenticated;
+      insert into auth.users values ('${user}'), ('${other}');
+    `);
+    for (
+      const name of [
+        "20261006000000_initial.sql",
+        "20261007000000_pack_allowances.sql",
+        "20261007010000_pi_card.sql",
+        "20261007020000_more_special_cards.sql",
+        "20261007030000_integer_album.sql",
+      ]
+    ) {
+      await db.exec(
+        await Deno.readTextFile(
+          new URL(`../supabase/migrations/${name}`, import.meta.url),
+        ),
+      );
+    }
+    await db.exec("set role service_role");
+    await db.query("select public.ensure_player($1)", [user]);
+    for (
+      const value of [
+        "-101",
+        "-100",
+        "-1",
+        "0",
+        "99",
+        "100",
+        "199",
+        "200",
+        huge,
+      ]
+    ) {
+      await db.query(
+        "insert into public.collection(user_id, kind, integer_value, quantity) values ($1, 'integer', $2, 2)",
+        [user, value],
+      );
+    }
+    await db.query(
+      "insert into public.collection(user_id, kind, special_id, quantity) values ($1, 'special', 'phi', 3)",
+      [user],
+    );
+    await db.exec("reset role; set role authenticated");
+    await db.query("select set_config('request.jwt.claim.sub', $1, false)", [
+      user,
+    ]);
+    const read = async (page: string) =>
+      (await db.query<{
+        album: {
+          page: string;
+          minPage: string;
+          maxPage: string;
+          cards: { card: { kind: string; value: string }; quantity: number }[];
+          specials: unknown[];
+        };
+      }>("select public.collection_album($1) as album", [page])).rows[0].album;
+    const zero = await read("0");
+    assertEquals(zero.minPage, "-2");
+    assertEquals(zero.maxPage, String(BigInt(huge) / 100n));
+    assertEquals(zero.cards, [{
+      card: { kind: "integer", value: "0" },
+      quantity: 2,
+    }, { card: { kind: "integer", value: "99" }, quantity: 2 }]);
+    assertEquals(zero.specials, [{
+      card: { kind: "special", id: "phi", label: "φ" },
+      quantity: 3,
+    }]);
+    assertEquals((await read("-1")).cards.map((item) => item.card.value), [
+      "-100",
+      "-1",
+    ]);
+    assertEquals((await read("-2")).cards.map((item) => item.card.value), [
+      "-101",
+    ]);
+    assertEquals((await read("1")).cards.map((item) => item.card.value), [
+      "100",
+      "199",
+    ]);
+    assertEquals((await read("2")).cards.map((item) => item.card.value), [
+      "200",
+    ]);
+    assertEquals(
+      (await read(String(BigInt(huge) / 100n))).cards[0].card.value,
+      huge,
+    );
+    assertEquals((await read("-999")).page, "-2");
+    for (const invalid of ["01", "-0", "1.5", "abc", "9".repeat(201)]) {
+      await assertRejects(() => read(invalid));
+    }
+    await db.query("select set_config('request.jwt.claim.sub', $1, false)", [
+      other,
+    ]);
+    assertEquals(await read("999"), {
+      page: "0",
+      minPage: "0",
+      maxPage: "0",
+      cards: [],
+      specials: [],
+    });
+    await db.exec("reset role; set role anon");
+    await assertRejects(() => read("0"));
+  } finally {
+    await db.close();
+  }
+});

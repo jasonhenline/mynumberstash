@@ -8,7 +8,11 @@ provides:
 - A pack-opening button, balance of up to six packs, and refill countdown using
   the backend's server time. The displayed balance updates as allowances refill.
 - Pack recovery with the same request ID after a lost response or page reload.
-- Collection quantities, numeric sorting, and pagination.
+- An integer album with 10×10 pages, empty slots for missing numbers, duplicate
+  quantities, Previous/Next navigation, and jumping directly to a number.
+- Album bounds cover the full integer collection, including negative numbers and
+  values beyond JavaScript's safe integer range. Page 0 (0–99) always exists.
+- Special numbers appear in their own section, independent of the integer page.
 - Negative and special unlock milestones; π, e, φ, i, and √2 use catalog labels
   in packs and the stash. Specials unlock at 100 distinct cards with a 0.5%
   chance per draw.

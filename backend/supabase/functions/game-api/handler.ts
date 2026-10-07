@@ -82,6 +82,18 @@ export function createGameHandler(
       const url = new URL(request.url);
       const path = url.pathname.replace(/^\/(?:functions\/v1\/)?game-api/, "");
 
+      if (request.method === "GET" && path === "/album") {
+        const page = url.searchParams.get("page") ?? "0";
+        if (page.length > 200 || !/^(0|-?[1-9][0-9]*)$/.test(page)) {
+          throw new HttpError(400, "invalid_page");
+        }
+        const { data, error } = await userClient.rpc("collection_album", {
+          p_page: page,
+        });
+        if (error) throw error;
+        return json(data);
+      }
+
       if (request.method === "GET" && path === "/collection") {
         const rawLimit = url.searchParams.get("limit") ?? "100";
         if (!/^\d+$/.test(rawLimit)) throw new HttpError(400, "invalid_limit");
@@ -172,7 +184,7 @@ export function createGameHandler(
         return json(pack);
       }
 
-      if (["/me", "/collection", "/packs/open"].includes(path)) {
+      if (["/me", "/collection", "/album", "/packs/open"].includes(path)) {
         throw new HttpError(405, "method_not_allowed");
       }
       throw new HttpError(404, "not_found");

@@ -14,6 +14,13 @@ type Card = { kind: "integer"; value: string } | {
   label?: string;
 };
 type OwnedCard = { card: Card; quantity: number };
+type Album = {
+  page: string;
+  minPage: string;
+  maxPage: string;
+  cards: OwnedCard[];
+  specials: OwnedCard[];
+};
 type Player = {
   distinctCards: number;
   packsOpened: number;
@@ -37,8 +44,8 @@ let client: SupabaseClient | null = null;
 let connection: Connection | null = null;
 let session: Session | null = null;
 let player: Player | null = null;
-let collection: OwnedCard[] = [];
-let cursor: string | null = null;
+let album: Album | null = null;
+let albumPage = "0";
 let pack: Pack | null = null;
 let pendingId: string | null = null;
 let busy = false;
@@ -147,13 +154,6 @@ function authMarkup(): string {
 }
 
 function gameMarkup(): string {
-  const sorted = [...collection].sort((a, b) => {
-    if (a.card.kind === "integer" && b.card.kind === "integer") {
-      const left = BigInt(a.card.value), right = BigInt(b.card.value);
-      return left < right ? -1 : left > right ? 1 : 0;
-    }
-    return label(a.card).localeCompare(label(b.card));
-  });
   return `<div class="stash-layout">
     <section class="stash-section" aria-labelledby="stash-title">
       <div class="section-heading stash-heading"><div><span class="eyebrow">A LITTLE STASH OF INFINITY</span><h1 id="stash-title">Your stash</h1></div><div class="stash-actions">${
@@ -161,20 +161,7 @@ function gameMarkup(): string {
   }<button id="refresh" class="text-button" ${
     busy ? "disabled" : ""
   }>Refresh ↻</button></div></div>
-      ${
-    collection.length
-      ? `<div class="cards">${
-        sorted.map((item) => cardMarkup(item.card, item.quantity)).join("")
-      }</div>`
-      : '<div class="empty"><span>∅</span><h3>Your stash is empty, for now.</h3><p>Open your first pack and stash your first ten cards.</p></div>'
-  }
-      ${
-    cursor
-      ? `<button id="load-more" class="secondary" ${
-        busy ? "disabled" : ""
-      }>Load more numbers</button>`
-      : ""
-  }
+      ${album ? albumMarkup() : '<p class="fine-print">Loading your stash…</p>'}
     </section>
     <aside class="game-sidebar" aria-label="Packs and progress">
       <section class="pack-panel"><div class="pack-info"><span class="eyebrow">ADD TO YOUR STASH</span><p id="pack-balance">Checking your packs…</p><p id="pack-time" aria-live="off">Checking your next refill…</p></div>
@@ -202,6 +189,70 @@ function gameMarkup(): string {
       }</div></section>`
       : ""
   }`;
+}
+
+function pageForNumber(value: bigint): bigint {
+  return value >= 0n ? value / 100n : (value - 99n) / 100n;
+}
+
+function albumMarkup(): string {
+  const page = BigInt(album!.page);
+  const start = page * 100n;
+  const end = start + 99n;
+  const owned = new Map(
+    album!.cards.flatMap((item) =>
+      item.card.kind === "integer"
+        ? [[item.card.value, item.quantity] as const]
+        : []
+    ),
+  );
+  const slots = Array.from({ length: 100 }, (_, i) => {
+    const value = String(start + BigInt(i));
+    const quantity = owned.get(value);
+    const description = quantity === undefined
+      ? `${value}: not collected`
+      : `${value}: ${quantity} stashed`;
+    return `<div class="album-slot ${
+      quantity === undefined ? "missing" : "owned"
+    }" role="listitem" aria-label="${escape(description)}" title="${
+      escape(description)
+    }">${
+      quantity === undefined
+        ? ""
+        : `<span class="slot-number">${
+          escape(value)
+        }</span><span class="slot-quantity">×${escape(quantity)}</span>`
+    }</div>`;
+  });
+  return `<div class="album-controls"><div class="page-navigation"><button id="previous-page" class="secondary" ${
+    busy || page === BigInt(album!.minPage) ? "disabled" : ""
+  } aria-label="Previous page">←</button><span id="page-range">${
+    escape(start)
+  } to ${escape(end)}</span><button id="next-page" class="secondary" ${
+    busy || page === BigInt(album!.maxPage) ? "disabled" : ""
+  } aria-label="Next page">→</button></div>
+    <form id="jump-form"><label for="jump-number">Jump to number</label><input id="jump-number" name="number" type="text" maxlength="200" required placeholder="e.g. 150 or -12"><button class="secondary" ${
+    busy ? "disabled" : ""
+  }>Go</button></form></div>
+    <div class="album-grid" role="list" aria-label="Numbers ${
+    escape(start)
+  } to ${escape(end)}">${slots.join("")}</div>
+    <p class="album-caption">${owned.size} of 100 numbers found on this page. Empty spaces are waiting to be filled.</p>
+    <section class="special-section" aria-labelledby="special-title"><div class="section-heading"><h2 id="special-title">Special numbers</h2><span>${
+    album!.specials.length
+  } found</span></div>${
+    album!.specials.length
+      ? `<div class="cards special-cards">${
+        [...album!.specials].sort((a, b) =>
+          label(a.card).localeCompare(label(b.card))
+        ).map((item) => cardMarkup(item.card, item.quantity)).join("")
+      }</div>`
+      : `<p class="fine-print">${
+        player?.specialsUnlocked
+          ? "Special numbers you discover will appear here."
+          : "Special numbers unlock at 100 distinct cards."
+      }</p>`
+  }</section>`;
 }
 
 function updateCountdown() {
@@ -285,18 +336,24 @@ async function api<T>(path: string, body?: object): Promise<T> {
 async function loadGame() {
   const userId = session?.user.id;
   if (!userId) return;
-  const [status, page] = await Promise.all([
+  const [status, nextAlbum] = await Promise.all([
     api<Player>("/me"),
-    api<{ cards: OwnedCard[]; nextCursor: string | null }>(
-      "/collection?limit=100",
-    ),
+    api<Album>(`/album?page=${encodeURIComponent(albumPage)}`),
   ]);
   if (session?.user.id !== userId) return;
   player = status;
   clockOffset = Date.parse(status.serverTime) - Date.now();
-  collection = page.cards;
-  cursor = page.nextCursor;
+  album = nextAlbum;
+  albumPage = nextAlbum.page;
   render();
+}
+
+async function loadAlbum(page: string) {
+  const userId = session?.user.id;
+  const result = await api<Album>(`/album?page=${encodeURIComponent(page)}`);
+  if (!userId || session?.user.id !== userId) return;
+  album = result;
+  albumPage = result.page;
 }
 
 async function run(action: () => Promise<void>) {
@@ -403,9 +460,9 @@ function bind() {
         if (error) throw error;
         session = null;
         player = null;
-        collection = [];
+        album = null;
+        albumPage = "0";
         pack = null;
-        cursor = null;
         pendingId = null;
       }),
   );
@@ -413,24 +470,39 @@ function bind() {
     "click",
     () => void run(loadGame),
   );
-  document.querySelector("#load-more")?.addEventListener(
-    "click",
-    () =>
-      void run(async () => {
-        const page = await api<
-          { cards: OwnedCard[]; nextCursor: string | null }
-        >(`/collection?limit=100&cursor=${encodeURIComponent(cursor!)}`);
-        const merged = new Map(
-          collection.map((
-            item,
-          ) => [`${item.card.kind}:${label(item.card)}`, item]),
+  for (
+    const [id, delta] of [["previous-page", -1n], ["next-page", 1n]] as const
+  ) {
+    document.querySelector(`#${id}`)?.addEventListener(
+      "click",
+      () => void run(() => loadAlbum(String(BigInt(albumPage) + delta))),
+    );
+  }
+  document.querySelector<HTMLFormElement>("#jump-form")?.addEventListener(
+    "submit",
+    (event) => {
+      event.preventDefault();
+      if (!album) return;
+      const form = new FormData(event.currentTarget as HTMLFormElement);
+      const value = String(form.get("number")).trim();
+      if (!/^(0|-?[1-9][0-9]*)$/.test(value) || value.length > 200) {
+        notify("Enter a whole number, such as 150 or -12.", "error");
+        return;
+      }
+      const page = pageForNumber(BigInt(value));
+      if (
+        page < BigInt(album.minPage) || page > BigInt(album.maxPage)
+      ) {
+        notify(
+          `Choose a number between ${BigInt(album.minPage) * 100n} and ${
+            BigInt(album.maxPage) * 100n + 99n
+          }.`,
+          "error",
         );
-        for (const item of page.cards) {
-          merged.set(`${item.card.kind}:${label(item.card)}`, item);
-        }
-        collection = [...merged.values()];
-        cursor = page.nextCursor;
-      }),
+        return;
+      }
+      void run(() => loadAlbum(String(page)));
+    },
   );
   document.querySelector("#open-pack")?.addEventListener(
     "click",
@@ -476,10 +548,10 @@ function connect(config: Connection) {
   connection = config;
   session = null;
   player = null;
-  collection = [];
+  album = null;
+  albumPage = "0";
   pack = null;
   pendingId = null;
-  cursor = null;
   if (localDevelopment) {
     localStorage.setItem("number-club.connection", JSON.stringify(config));
   }
@@ -494,9 +566,9 @@ function connect(config: Connection) {
       session = nextSession;
       if (changedUser) {
         player = null;
-        collection = [];
+        album = null;
+        albumPage = "0";
         pack = null;
-        cursor = null;
       }
       pendingId = session
         ? localStorage.getItem(pendingKey(session.user.id))

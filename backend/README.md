@@ -87,11 +87,21 @@ Base URL: `http://127.0.0.1:54321/functions/v1/game-api` locally, or
 `https://<project-ref>.supabase.co/functions/v1/game-api` when deployed. All
 routes require a Supabase user bearer token.
 
-| Method | Path                               | Behavior                                             |
-| ------ | ---------------------------------- | ---------------------------------------------------- |
-| GET    | `/me`                              | Player progression, next pack time, and server time  |
-| GET    | `/collection?limit=100&cursor=...` | Owned cards, quantities, and an optional next cursor |
-| POST   | `/packs/open`                      | Open or recover a pack                               |
+| Method | Path                               | Behavior                                                 |
+| ------ | ---------------------------------- | -------------------------------------------------------- |
+| GET    | `/me`                              | Player progression, next pack time, and server time      |
+| GET    | `/collection?limit=100&cursor=...` | Owned cards, quantities, and an optional next cursor     |
+| GET    | `/album?page=0`                    | Integer page, full collection bounds, and owned specials |
+| POST   | `/packs/open`                      | Open or recover a pack                                   |
+
+`GET /album` returns `page`, `minPage`, and `maxPage` as decimal strings,
+`cards` containing owned integers on that page, and `specials` containing owned
+special cards with display labels. Page 0 covers 0–99; page -1 covers -100–-1.
+Bounds include page 0 and extend to the smallest/largest owned integer pages.
+Out-of-range requests clamp to the nearest valid page. The function reads as the
+authenticated user under RLS; missing slots are rendered by the frontend and
+never stored. An indexed generated numeric column keeps page lookup exact even
+for very large integers.
 
 POST body:
 

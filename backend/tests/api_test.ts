@@ -309,3 +309,42 @@ Deno.test("collection special labels come from the related catalog rows", async 
     label: "φ",
   });
 });
+
+Deno.test("album reads use the user's token and validate exact page strings", async () => {
+  let reads = 0;
+  const handler = createGameHandler(
+    config,
+    (async (input: string | URL | Request, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      if (path === "/auth/v1/user") return Response.json({ id: userId });
+      assertEquals(path, "/rest/v1/rpc/collection_album");
+      assertEquals(
+        new Headers(init?.headers).get("Authorization"),
+        "Bearer test-user-token",
+      );
+      assertEquals(await new Response(init?.body).json(), { p_page: "-1" });
+      reads++;
+      return Response.json({
+        page: "-1",
+        minPage: "-1",
+        maxPage: "2",
+        cards: [],
+        specials: [],
+      });
+    }) as typeof fetch,
+  );
+  const request = (page: string) =>
+    new Request(
+      `http://localhost/game-api/album?page=${encodeURIComponent(page)}`,
+      {
+        headers: { Authorization: "Bearer test-user-token" },
+      },
+    );
+  const response = await handler(request("-1"));
+  assertEquals(response.status, 200);
+  assertEquals((await response.json()).maxPage, "2");
+  for (const value of ["01", "-0", "1.5", "abc", "9".repeat(201)]) {
+    assertEquals((await handler(request(value))).status, 400);
+  }
+  assertEquals(reads, 1);
+});
