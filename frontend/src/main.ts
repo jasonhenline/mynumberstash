@@ -289,7 +289,7 @@ function updateCountdown() {
       remaining >= 60
         ? `${Math.floor(remaining / 3600)}h ${
           Math.floor(remaining % 3600 / 60)
-        }m`
+        }m ${remaining % 60}s`
         : `${remaining}s`
     }`;
   button.disabled = busy || !player || (available === 0 && !pendingId);

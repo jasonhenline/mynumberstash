@@ -165,7 +165,9 @@ test("signup uses local email confirmation; login, opening, collection, and sign
     .toHaveCount(10);
   await expect(page.getByRole("button", { name: "Open a pack" }))
     .toBeDisabled();
-  await expect(page.locator("#pack-time")).toContainText("Next allowance in");
+  await expect(page.locator("#pack-time")).toHaveText(
+    /Next allowance in \d+h \d+m \d+s/,
+  );
   await expect(page.locator(".intro")).toHaveCount(0);
   await expect(page.locator(".album-slot.owned").first())
     .toBeInViewport();
