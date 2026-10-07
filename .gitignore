@@ -1,0 +1,9 @@
+.env
+.env.*
+node_modules/
+backend/supabase/.temp/
+backend/supabase/.branches/
+coverage/
+*.tfstate
+*.tfstate.*
+.terraform/

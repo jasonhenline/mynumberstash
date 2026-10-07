@@ -1,0 +1,56 @@
+name: Backend
+
+on:
+  push:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/backend.yml"]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy the backend to production
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.2.10
+      - run: deno task fmt:check
+      - run: deno task lint
+      - run: deno task check
+      - run: deno task test
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: supabase-production
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx --yes supabase@2.120.0 link --project-ref "$SUPABASE_PROJECT_REF"
+      - run: npx --yes supabase@2.120.0 db push
+      - run: npx --yes supabase@2.120.0 functions deploy game-api
