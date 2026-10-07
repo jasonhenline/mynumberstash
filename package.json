@@ -5,12 +5,15 @@
   "scripts": {
     "dev": "pnpm --dir frontend dev",
     "build": "pnpm --dir frontend build",
+    "preview": "pnpm --dir frontend preview",
+    "deploy:web": "pnpm build && wrangler pages deploy frontend/dist --project-name number-club --branch main",
     "test:web": "pnpm --dir frontend test",
     "backend:start": "supabase --workdir backend start",
     "backend:serve": "supabase --workdir backend functions serve game-api",
     "backend:stop": "supabase --workdir backend stop"
   },
   "devDependencies": {
-    "supabase": "2.118.0"
+    "supabase": "2.118.0",
+    "wrangler": "4.45.0"
   }
 }

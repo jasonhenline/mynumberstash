@@ -66,3 +66,15 @@ cooldowns, signout, and recovery after a lost response. They do not require
 Docker. See [the backend guide](backend/README.md) for database tests, game
 rules, and deployment details, and [the frontend guide](frontend/README.md) for
 app details.
+
+## Production frontend
+
+`pnpm build` creates the production frontend in `frontend/dist/`, automatically
+connected to the hosted Supabase project. The URL and publishable key are public
+configuration in `frontend/src/production-config.ts`. Local development with
+`pnpm dev` keeps the local setup described above.
+
+`pnpm preview` serves the production build at `http://localhost:5174`. It uses
+the hosted project, so production account operations are real. Deployment and
+hosted Auth configuration are described in
+[the frontend guide](frontend/README.md#production).

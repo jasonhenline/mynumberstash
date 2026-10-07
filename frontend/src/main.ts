@@ -4,6 +4,9 @@ import {
   type SupabaseClient,
 } from "@supabase/supabase-js";
 import "./style.css";
+import { productionConnection } from "./production-config";
+
+const localDevelopment = import.meta.env.DEV;
 
 type Card = { kind: "integer"; value: string } | {
   kind: "special";
@@ -45,7 +48,8 @@ const escape = (value: unknown): string =>
   );
 const label = (card: Card): string =>
   card.kind === "integer" ? card.value : card.id;
-const pendingKey = (userId: string): string => `number-club.pending.${userId}`;
+const pendingKey = (userId: string): string =>
+  `number-club.pending.${connection!.url}.${userId}`;
 
 function notify(text: string, kind: "success" | "error" = "success") {
   message = text;
@@ -65,7 +69,9 @@ function cardMarkup(card: Card, quantity?: number): string {
 
 function render() {
   app.innerHTML = `
-    <header><a class="brand" href="/">N<span>°</span> <span class="brand-name">NUMBER CLUB</span></a><span class="environment"><i></i> LOCAL PLAYGROUND</span></header>
+    <header><a class="brand" href="/">N<span>°</span> <span class="brand-name">NUMBER CLUB</span></a><span class="environment"><i></i> ${
+    localDevelopment ? "LOCAL PLAYGROUND" : "COLLECT SOMETHING INFINITE"
+  }</span></header>
     <main>
       <div class="intro"><span class="eyebrow">A LITTLE COLLECTION OF INFINITY</span><h1>Every number<br>has a place.</h1><p>Ten cards. Four hours. A collection that keeps growing.</p></div>
       ${
@@ -105,8 +111,16 @@ function authMarkup(): string {
         <button class="secondary" type="submit" name="signup" ${
     busy ? "disabled" : ""
   }>Create account</button></div>
-    </form><p class="fine-print">After signing up, confirm your email in the <a href="http://localhost:54324" target="_blank" rel="noopener noreferrer">local mail viewer ↗</a>, then sign in here.</p>
-    <button class="text-button" id="disconnect">Change connection</button></section>`;
+    </form><p class="fine-print">${
+    localDevelopment
+      ? 'After signing up, confirm your email in the <a href="http://localhost:54324" target="_blank" rel="noopener noreferrer">local mail viewer ↗</a>, then sign in here.'
+      : "After signing up, check your inbox to confirm your email, then sign in."
+  }</p>
+    ${
+    localDevelopment
+      ? '<button class="text-button" id="disconnect">Change connection</button>'
+      : ""
+  }</section>`;
 }
 
 function gameMarkup(): string {
@@ -319,9 +333,13 @@ function bind() {
           session = data.session;
           pendingId = localStorage.getItem(pendingKey(session.user.id));
           await loadGame();
-        } else {notify(
-            "Check the local mail viewer to confirm your email, then sign in.",
-          );}
+        } else {
+          notify(
+            localDevelopment
+              ? "Check the local mail viewer to confirm your email, then sign in."
+              : "Check your inbox to confirm your email, then sign in.",
+          );
+        }
       });
     },
   );
@@ -415,7 +433,9 @@ function connect(config: Connection) {
   pack = null;
   pendingId = null;
   cursor = null;
-  localStorage.setItem("number-club.connection", JSON.stringify(config));
+  if (localDevelopment) {
+    localStorage.setItem("number-club.connection", JSON.stringify(config));
+  }
   client = createClient(config.url, config.key);
   const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
     // Defer API calls until the Auth callback releases its internal lock.
@@ -438,7 +458,9 @@ function connect(config: Connection) {
       if (session && !busy) {
         void loadGame().catch(() =>
           notify(
-            "Could not load the game. Check that the local backend and Edge Function are running, then refresh.",
+            localDevelopment
+              ? "Could not load the game. Check that the local backend and Edge Function are running, then refresh."
+              : "Could not load your collection. Please try refreshing in a moment.",
             "error",
           )
         );
@@ -451,9 +473,13 @@ function connect(config: Connection) {
 }
 
 try {
-  const saved = localStorage.getItem("number-club.connection");
-  if (saved) connect(JSON.parse(saved) as Connection);
-  else render();
+  if (!localDevelopment) {
+    connect(productionConnection);
+  } else {
+    const saved = localStorage.getItem("number-club.connection");
+    if (saved) connect(JSON.parse(saved) as Connection);
+    else render();
+  }
 } catch {
   localStorage.removeItem("number-club.connection");
   render();
