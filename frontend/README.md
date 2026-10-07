@@ -14,6 +14,10 @@ provides:
   chance per draw.
 - Session persistence and signout through Supabase Auth.
 
+After sign-in, the stash is the main view. Desktop pack controls and progress
+sit in a sidebar; mobile uses a compact pack bar above the collection. Latest
+pack results appear below the stash, with a shortcut beside Refresh.
+
 Follow the [root setup guide](../README.md) to start Supabase and the app. Use
 `http://localhost:5173` rather than a different port or host, matching the
 backend's default CORS origin and Auth redirect URL. No environment file is

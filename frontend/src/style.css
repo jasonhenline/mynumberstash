@@ -16,7 +16,7 @@ header, main, footer {
   padding: 0 32px;
 }
 header {
-  height: 104px;
+  height: 76px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -54,7 +54,7 @@ header {
   background: #64795b;
 }
 .intro {
-  margin: 60px 0 34px;
+  margin: 36px 0 28px;
 }
 .eyebrow {
   color: #687571;
@@ -179,92 +179,101 @@ a {
   border-color: #d9b7a4;
   color: #85482e;
 }
+.game {
+  padding-top: 24px;
+}
+.game .notice {
+  margin: 0 0 18px;
+}
 .account {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  font-size: 13px;
+  font-size: 12px;
   color: #6a746c;
-  gap: 10px;
-  overflow-wrap: anywhere;
+  gap: 20px;
+  min-width: 0;
+}
+.account > span {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account button {
+  flex-shrink: 0;
+}
+.stash-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 28px;
+  align-items: start;
+}
+.stash-section, .game-sidebar {
+  min-width: 0;
+}
+.game-sidebar {
+  position: sticky;
+  top: 24px;
+}
+.section-heading.stash-heading {
+  margin: 0 0 22px;
+  align-items: end;
+}
+.stash-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.stash-heading h1 {
+  margin: 8px 0 0;
+  font-size: 42px;
+  letter-spacing: -2px;
 }
 .pack-panel {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 16px;
   background: #e6e9dd;
   border: 1px solid #ccd3c0;
   border-radius: 12px;
-  padding: 38px;
-  overflow: hidden;
-  min-height: 250px;
+  padding: 20px;
+}
+.pack-info {
+  min-width: 0;
 }
 .pack-panel button {
-  margin-top: 12px;
-  min-width: 190px;
   display: flex;
-  gap: 20px;
+  gap: 12px;
   justify-content: space-between;
-}
-.pack-panel p {
-  font-size: 14px;
-  max-width: 370px;
-}
-.pack-art {
-  position: relative;
-  width: 230px;
-  height: 180px;
-  margin-right: 15px;
-  flex-shrink: 0;
-}
-.art-card {
-  position: absolute;
-  width: 125px;
-  height: 175px;
-  border: 1px solid #c7cabb;
-  border-radius: 8px;
-  background: #faf9ef;
-  box-shadow: 0 12px 18px #3f4f3220;
-  display: flex;
   align-items: center;
-  justify-content: center;
-  font-family: "Space Mono", monospace;
-  font-size: 76px;
 }
-.art-card.back {
-  transform: rotate(-16deg);
-  left: 18px;
-  top: 6px;
-  background: #d2d9c4;
-  color: #6c7a60;
+#pack-balance {
+  font-size: 17px;
+  font-weight: 600;
+  color: #253c31;
+  margin: 12px 0 6px;
 }
-.art-card.front {
-  transform: rotate(11deg);
-  left: 85px;
-  top: -4px;
-}
-.art-card span {
-  position: absolute;
-  bottom: 16px;
-  font-size: 5px;
-  letter-spacing: 0.4px;
+#pack-time {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
 }
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 12px;
   border-block: 1px solid #d9d8cf;
-  margin: 30px 0 40px;
+  margin: 20px 0 0;
 }
 .stats div {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 22px 0;
+  padding: 16px 0;
 }
 .stats strong {
   font-family: "Space Mono", monospace;
-  font-size: 24px;
+  font-size: 18px;
   font-weight: 400;
 }
 .stats span {
@@ -300,7 +309,20 @@ a {
   border-radius: 8px;
   background: #fcfbf5;
 }
+.latest-pack {
+  border-top: 1px solid #d9d8cf;
+  margin-top: 28px;
+}
+.pack-cards {
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 10px;
+}
+.pack-cards .number {
+  font-size: 28px;
+}
 .pack-cards .number-card {
+  min-height: 120px;
+  padding: 12px;
   background: #edf0e3;
   border-color: #ced6bd;
 }
@@ -338,7 +360,7 @@ a {
   font-size: 14px;
 }
 footer {
-  margin-top: 70px;
+  margin-top: 40px;
   padding-block: 28px;
   display: flex;
   justify-content: space-between;
@@ -346,6 +368,38 @@ footer {
   color: #80887b;
   border-top: 1px solid #d9d8cf;
   font-size: 9px;
+}
+@media (max-width: 800px) {
+  .stash-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+  .game-sidebar {
+    display: contents;
+  }
+  .pack-panel {
+    order: -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    gap: 12px;
+  }
+  .pack-panel button {
+    flex-shrink: 0;
+    padding: 12px;
+    font-size: 13px;
+    gap: 8px;
+  }
+  #pack-balance {
+    font-size: 15px;
+    margin-top: 8px;
+  }
+  .stats {
+    order: 1;
+    grid-template-columns: repeat(4, 1fr);
+    margin-top: 0;
+  }
 }
 @media (max-width: 640px) {
   header, main, footer {
@@ -361,7 +415,7 @@ footer {
     letter-spacing: 0.4px;
   }
   header {
-    height: 82px;
+    height: 68px;
   }
   .intro {
     margin-top: 40px;
@@ -369,11 +423,19 @@ footer {
   h1 {
     letter-spacing: -2px;
   }
-  .pack-panel {
-    padding: 24px;
-  }
-  .pack-art {
+  .account > span {
     display: none;
+  }
+  .game {
+    padding-top: 16px;
+  }
+  .stash-heading h1 {
+    font-size: 36px;
+  }
+  .stash-actions {
+    flex-direction: column;
+    align-items: end;
+    gap: 0;
   }
   .panel {
     padding: 24px;
@@ -383,7 +445,7 @@ footer {
     gap: 10px;
   }
   .stats strong {
-    font-size: 20px;
+    font-size: 18px;
   }
   .stats span {
     font-size: 10px;

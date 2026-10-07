@@ -148,11 +148,18 @@ test("signup uses local email confirmation; login, opening, collection, and sign
   await expect(page.getByRole("button", { name: "Open a pack" }))
     .toBeDisabled();
   await expect(page.locator("#pack-time")).toContainText("Next allowance in");
+  await expect(page.locator(".intro")).toHaveCount(0);
+  await expect(page.locator(".stash-section .number-card").first())
+    .toBeInViewport();
+  await expect(page.getByRole("link", { name: "Latest pack ↓" }))
+    .toHaveAttribute("href", "#latest-pack");
   await page.screenshot({
     path: "test-results/collection-desktop.png",
     fullPage: true,
   });
   await page.setViewportSize({ width: 375, height: 812 });
+  await expect(page.locator(".stash-section .number-card").first())
+    .toBeInViewport();
   await page.screenshot({
     path: "test-results/collection-mobile.png",
     fullPage: true,

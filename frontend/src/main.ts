@@ -80,11 +80,23 @@ function cardMarkup(card: Card, quantity?: number): string {
 
 function render() {
   app.innerHTML = `
-    <header><a class="brand" href="/">N<span>°</span> <span class="brand-name">MY NUMBER STASH</span></a><span class="environment"><i></i> ${
-    localDevelopment ? "LOCAL PLAYGROUND" : "ENDLESS FINDS"
-  }</span></header>
-    <main>
-      <div class="intro"><span class="eyebrow">A LITTLE STASH OF INFINITY</span><h1>Every number<br>has a place.</h1><p>Ten cards per pack. Save up to six packs, with one refilling every four hours.</p></div>
+    <header><a class="brand" href="/">N<span>°</span> <span class="brand-name">MY NUMBER STASH</span></a>${
+    session
+      ? `<div class="account"><span>${
+        escape(session.user.email ?? "Collector")
+      }</span><button class="text-button" id="signout" ${
+        busy ? "disabled" : ""
+      }>Sign out</button></div>`
+      : `<span class="environment"><i></i> ${
+        localDevelopment ? "LOCAL PLAYGROUND" : "ENDLESS FINDS"
+      }</span>`
+  }</header>
+    <main class="${session ? "game" : "welcome"}">
+      ${
+    !session
+      ? '<div class="intro"><span class="eyebrow">A LITTLE STASH OF INFINITY</span><h1>Every number<br>has a place.</h1><p>Ten cards per pack. Save up to six packs, with one refilling every four hours.</p></div>'
+      : ""
+  }
       ${
     message
       ? `<div class="notice ${messageKind}" role="${
@@ -142,17 +154,35 @@ function gameMarkup(): string {
     }
     return label(a.card).localeCompare(label(b.card));
   });
-  return `<div class="account"><span>${
-    escape(session!.user.email ?? "Collector")
-  }</span><button class="text-button" id="signout" ${
+  return `<div class="stash-layout">
+    <section class="stash-section" aria-labelledby="stash-title">
+      <div class="section-heading stash-heading"><div><span class="eyebrow">A LITTLE STASH OF INFINITY</span><h1 id="stash-title">Your stash</h1></div><div class="stash-actions">${
+    pack ? '<a class="text-button" href="#latest-pack">Latest pack ↓</a>' : ""
+  }<button id="refresh" class="text-button" ${
     busy ? "disabled" : ""
-  }>Sign out</button></div>
-    <section class="pack-panel"><div><span class="eyebrow">YOUR NEXT DISCOVERY</span><h2>Room for ten more.</h2><p id="pack-balance">Checking your packs…</p><p id="pack-time" aria-live="off">Checking your next refill…</p>
-      <button id="open-pack" ${busy || !player ? "disabled" : ""}>${
+  }>Refresh ↻</button></div></div>
+      ${
+    collection.length
+      ? `<div class="cards">${
+        sorted.map((item) => cardMarkup(item.card, item.quantity)).join("")
+      }</div>`
+      : '<div class="empty"><span>∅</span><h3>Your stash is empty, for now.</h3><p>Open your first pack and stash your first ten cards.</p></div>'
+  }
+      ${
+    cursor
+      ? `<button id="load-more" class="secondary" ${
+        busy ? "disabled" : ""
+      }>Load more numbers</button>`
+      : ""
+  }
+    </section>
+    <aside class="game-sidebar" aria-label="Packs and progress">
+      <section class="pack-panel"><div class="pack-info"><span class="eyebrow">ADD TO YOUR STASH</span><p id="pack-balance">Checking your packs…</p><p id="pack-time" aria-live="off">Checking your next refill…</p></div>
+        <button id="open-pack" ${busy || !player ? "disabled" : ""}>${
     busy ? "Working…" : pendingId ? "Retry pack opening" : "Open a pack"
-  } <span>＋</span></button></div>
-      <div class="pack-art" aria-hidden="true"><div class="art-card back">7</div><div class="art-card front">0<span>THE POSSIBILITIES BEGIN HERE</span></div></div></section>
-    <section class="stats" aria-label="Stash statistics"><div><strong>${
+  } <span>＋</span></button>
+      </section>
+      <section class="stats" aria-label="Stash statistics"><div><strong>${
     player?.distinctCards ?? "—"
   }</strong><span>Distinct numbers</span></div><div><strong>${
     player?.packsOpened ?? "—"
@@ -161,32 +191,17 @@ function gameMarkup(): string {
   }</strong><span>Negative numbers · unlock at 50</span></div><div><strong>${
     player ? player.specialsUnlocked ? "Unlocked" : "Locked" : "—"
   }</strong><span>Special numbers · unlock at 100</span></div></section>
-    ${
+    </aside>
+  </div>
+  ${
     pack
-      ? `<section><div class="section-heading"><h2>${
+      ? `<section class="latest-pack" id="latest-pack"><div class="section-heading"><h2>${
         pack.replayed ? "Your recovered pack" : "Your latest pack"
       }</h2><span>10 new cards</span></div><div class="cards pack-cards">${
         pack.cards.map((card) => cardMarkup(card)).join("")
       }</div></section>`
       : ""
-  }
-    <section><div class="section-heading"><h2>Your stash</h2><button id="refresh" class="text-button" ${
-    busy ? "disabled" : ""
-  }>Refresh ↻</button></div>
-      ${
-    collection.length
-      ? `<div class="cards">${
-        sorted.map((item) => cardMarkup(item.card, item.quantity)).join("")
-      }</div>`
-      : `<div class="empty"><span>∅</span><h3>Your stash is empty, for now.</h3><p>Open your first pack and stash your first ten cards.</p></div>`
-  }
-      ${
-    cursor
-      ? `<button id="load-more" class="secondary" ${
-        busy ? "disabled" : ""
-      }>Load more numbers</button>`
-      : ""
-  }</section>`;
+  }`;
 }
 
 function updateCountdown() {
@@ -219,9 +234,13 @@ function updateCountdown() {
     ? "Loading your game…"
     : full
     ? "Your pack balance is full. Open a pack to start refilling."
-    : `Next allowance in ${Math.floor(remaining / 3600)}h ${
-      Math.floor(remaining % 3600 / 60)
-    }m ${remaining % 60}s`;
+    : `Next allowance in ${
+      remaining >= 60
+        ? `${Math.floor(remaining / 3600)}h ${
+          Math.floor(remaining % 3600 / 60)
+        }m`
+        : `${remaining}s`
+    }`;
   button.disabled = busy || !player || (available === 0 && !pendingId);
 }
 
