@@ -543,6 +543,14 @@ footer {
   border-radius: 4px;
   background: var(--card);
 }
+.album-slot.owned {
+  background: #193e30;
+  border-color: #57a880;
+  color: #acffd1;
+}
+.album-slot.owned .slot-quantity {
+  color: #b7dac8;
+}
 .album-slot.missing {
   border-style: dashed;
   border-color: #334253;
