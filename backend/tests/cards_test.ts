@@ -58,3 +58,28 @@ Deno.test("geometric distribution has the expected mean and zero frequency", () 
     );
   }
 });
+
+Deno.test("specials unlock at 100 distinct cards with a half-percent threshold", () => {
+  let draw = 0;
+  // Below the unlock, these draws still select negatives rather than specials.
+  const locked = generatePack(99, () => draw++ % 2 === 0 ? 0.001 : 0.99);
+  assertEquals(locked, Array(10).fill({ kind: "integer", value: "-1" }));
+  assertEquals(
+    generatePack(100, () => 0.004),
+    Array(10).fill({ kind: "special", id: "pi" }),
+  );
+  draw = 0;
+  const boundary = generatePack(100, () => draw++ % 3 === 0 ? 0.005 : 0.99);
+  assertEquals(boundary, Array(10).fill({ kind: "integer", value: "0" }));
+});
+
+Deno.test("unlocked packs can contain specials, negatives, and nonnegative integers", () => {
+  const draws = [0.001, 0.01, 0.05, 0.99];
+  for (let i = 0; i < 8; i++) draws.push(0.01, 0.5, 0.99);
+  assertEquals(generatePack(100, () => draws.shift()!), [
+    { kind: "special", id: "pi" },
+    { kind: "integer", value: "-1" },
+    ...Array(8).fill({ kind: "integer", value: "0" }),
+  ]);
+  assertEquals(draws.length, 0);
+});

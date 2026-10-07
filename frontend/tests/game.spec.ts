@@ -16,6 +16,7 @@ const basePlayer = {
   distinctCards: 0,
   packsOpened: 0,
   negativesUnlocked: false,
+  specialsUnlocked: false,
   packAllowances: 1,
   maxPackAllowances: 6,
   nextAllowanceAt: null,
@@ -327,3 +328,82 @@ for (const initial of [3, 6]) {
     expect(requests.size).toBe(initial);
   });
 }
+
+test("reaching 100 unlocks specials and pi renders in packs and the stash", async ({ page }) => {
+  await mockAuth(page);
+  let opened = 0;
+  const pi = { kind: "special", id: "pi" };
+  await page.route(
+    "http://127.0.0.1:54321/functions/v1/game-api/**",
+    async (route) => {
+      const headers = {
+        "Access-Control-Allow-Origin": "http://localhost:5173",
+        "Access-Control-Allow-Headers": "*",
+      };
+      if (route.request().method() === "OPTIONS") {
+        return route.fulfill({
+          status: 204,
+          headers,
+        });
+      }
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/me")) {
+        return route.fulfill({
+          headers,
+          json: {
+            ...basePlayer,
+            distinctCards: 99 + opened,
+            negativesUnlocked: true,
+            specialsUnlocked: opened > 0,
+            packAllowances: 3 - opened,
+            nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
+            serverTime: new Date().toISOString(),
+          },
+        });
+      }
+      if (path.endsWith("/collection")) {
+        return route.fulfill({
+          headers,
+          json: {
+            cards: opened > 1 ? [{ card: pi, quantity: 2 }] : [],
+            nextCursor: null,
+          },
+        });
+      }
+      opened++;
+      return route.fulfill({
+        headers,
+        json: {
+          cards: opened === 1 ? cards : [pi, pi, ...cards.slice(0, 8)],
+          replayed: false,
+          packAllowances: 3 - opened,
+          nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
+        },
+      });
+    },
+  );
+  await connect(page);
+  await signIn(page);
+  const milestone = page.locator(".stats div").filter({
+    hasText: "Special numbers",
+  });
+  await expect(milestone).toContainText("Locked");
+  await expect(milestone).toContainText("unlock at 100");
+  await page.getByRole("button", { name: "Open a pack" }).click();
+  await expect(milestone).toContainText("Unlocked");
+  await expect(page.locator(".pack-cards .number").filter({ hasText: "π" }))
+    .toHaveCount(0);
+  await page.getByRole("button", { name: "Open a pack" }).click();
+  await expect(page.locator(".pack-cards .number").filter({ hasText: "π" }))
+    .toHaveCount(2);
+  const owned = page.locator(".cards:not(.pack-cards) .number-card");
+  await expect(owned).toContainText("π");
+  await expect(owned).toContainText("SPECIAL");
+  await expect(owned).toContainText("× 2 stashed");
+  await page.setViewportSize({ width: 375, height: 812 });
+  expect(
+    await page.evaluate(() =>
+      document.documentElement.scrollWidth <= innerWidth
+    ),
+  ).toBe(true);
+});

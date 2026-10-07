@@ -8,6 +8,8 @@ export const GAME_RULES = {
   geometricRatio: Math.exp(-1 / 50),
   negativeUnlockDistinctCards: 50,
   negativeProbability: 0.10,
+  specialUnlockDistinctCards: 100,
+  specialProbability: 0.005,
 } as const;
 
 /** Uniform [0, 1), supplied by the server rather than the caller. */
@@ -34,7 +36,12 @@ export function generatePack(
 ): Card[] {
   const negativesUnlocked =
     distinctCards >= GAME_RULES.negativeUnlockDistinctCards;
+  const specialsUnlocked =
+    distinctCards >= GAME_RULES.specialUnlockDistinctCards;
   return Array.from({ length: GAME_RULES.packSize }, () => {
+    if (specialsUnlocked && random() < GAME_RULES.specialProbability) {
+      return { kind: "special" as const, id: "pi" };
+    }
     const negative = negativesUnlocked &&
       random() < GAME_RULES.negativeProbability;
     const magnitude = geometricInteger(GAME_RULES.geometricRatio, random);

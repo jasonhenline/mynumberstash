@@ -36,6 +36,18 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
         ),
       ),
     );
+    await db.exec(
+      await Deno.readTextFile(
+        new URL(
+          "../supabase/migrations/20261007010000_pi_card.sql",
+          import.meta.url,
+        ),
+      ),
+    );
+    assertEquals(
+      (await db.query("select id, label from public.special_cards")).rows,
+      [{ id: "pi", label: "π" }],
+    );
     const user = "00000000-0000-4000-8000-000000000001";
     const other = "00000000-0000-4000-8000-000000000002";
     const id = "10000000-0000-4000-8000-000000000001";
@@ -117,11 +129,12 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
     await assertRejects(() =>
       db.query(
         "select public.award_pack($1, $2, 2, $3::jsonb)",
-        [user, specialRequest, JSON.stringify(specialCards)],
+        [
+          user,
+          specialRequest,
+          JSON.stringify(Array(10).fill({ kind: "special", id: "missing" })),
+        ],
       )
-    );
-    await db.exec(
-      "insert into public.special_cards values ('pi', 'π', 'constant')",
     );
     await db.query("select public.award_pack($1, $2, 2, $3::jsonb)", [
       user,

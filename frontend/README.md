@@ -9,6 +9,8 @@ provides:
   the backend's server time. The displayed balance updates as allowances refill.
 - Pack recovery with the same request ID after a lost response or page reload.
 - Collection quantities, numeric sorting, and pagination.
+- Negative and special unlock milestones; π renders as a symbol in packs and the
+  stash. Specials unlock at 100 distinct cards with a 0.5% chance per draw.
 - Session persistence and signout through Supabase Auth.
 
 Follow the [root setup guide](../README.md) to start Supabase and the app. Use

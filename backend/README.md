@@ -25,8 +25,10 @@ cannot call the award function or write their own collection.
   BigInt. Their decimal strings are stored directly; there is no integer
   catalog. Storage accepts up to 200 characters per integer, a practical limit
   far beyond typical draws from this distribution.
-- A special-card catalog and collection representation are included, but special
-  cards are not seeded or awarded yet.
+- After collecting 100 distinct cards, each draw has a 0.5% chance of being a
+  special number. The first special is π, stored as `special:pi`; duplicates
+  increase its quantity. Otherwise, the normal integer rules apply. Unlocks take
+  effect starting with the next pack, using distinct cards before opening.
 
 Edit `supabase/functions/_shared/cards.ts` to adjust probabilities and
 progression. Pack size, refill interval, and allowance cap are also enforced in
@@ -108,15 +110,17 @@ Successful pack response:
 ```
 
 The example abbreviates the cards array; actual responses contain ten cards.
-`GET /me` returns `packAllowances`, `maxPackAllowances` (6), and
-`nextAllowanceAt` (null when full). This timestamp is the next refill, even when
-packs are already available. Pack responses include the balance after spending;
-retries return the original snapshot. Reload `/me` for current status. Cooldown
-responses use HTTP 429 with `error: "cooldown"`, `nextAllowanceAt`, and a
-`Retry-After` header. A progression conflict returns HTTP 409; retry with the
-same request ID. Invalid input returns 400, oversized bodies 413, invalid
-sessions 401. Collection pagination is by stable card key, not numerical order;
-pass `nextCursor` back as the URL-encoded `cursor` parameter until it is null.
+Player status includes `negativesUnlocked` and `specialsUnlocked`, based on 50
+and 100 distinct cards respectively. `GET /me` returns `packAllowances`,
+`maxPackAllowances` (6), and `nextAllowanceAt` (null when full). This timestamp
+is the next refill, even when packs are already available. Pack responses
+include the balance after spending; retries return the original snapshot. Reload
+`/me` for current status. Cooldown responses use HTTP 429 with
+`error: "cooldown"`, `nextAllowanceAt`, and a `Retry-After` header. A
+progression conflict returns HTTP 409; retry with the same request ID. Invalid
+input returns 400, oversized bodies 413, invalid sessions 401. Collection
+pagination is by stable card key, not numerical order; pass `nextCursor` back as
+the URL-encoded `cursor` parameter until it is null.
 
 ## Deployment
 

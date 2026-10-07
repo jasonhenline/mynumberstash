@@ -17,6 +17,7 @@ type Player = {
   distinctCards: number;
   packsOpened: number;
   negativesUnlocked: boolean;
+  specialsUnlocked: boolean;
   packAllowances: number;
   maxPackAllowances: number;
   nextAllowanceAt: string | null;
@@ -54,7 +55,7 @@ const escape = (value: unknown): string =>
       ]!,
   );
 const label = (card: Card): string =>
-  card.kind === "integer" ? card.value : card.id;
+  card.kind === "integer" ? card.value : card.id === "pi" ? "π" : card.id;
 const pendingKey = (userId: string): string =>
   `number-club.pending.${connection!.url}.${userId}`;
 
@@ -154,7 +155,9 @@ function gameMarkup(): string {
     player?.packsOpened ?? "—"
   }</strong><span>Packs opened</span></div><div><strong>${
     player ? player.negativesUnlocked ? "Unlocked" : "Locked" : "—"
-  }</strong><span>Negative numbers · unlock at 50</span></div></section>
+  }</strong><span>Negative numbers · unlock at 50</span></div><div><strong>${
+    player ? player.specialsUnlocked ? "Unlocked" : "Locked" : "—"
+  }</strong><span>Special numbers · unlock at 100</span></div></section>
     ${
     pack
       ? `<section><div class="section-heading"><h2>${

@@ -183,3 +183,33 @@ Deno.test("pack endpoint uses verified identity, generates cards, and reports co
   assertEquals(player.maxPackAllowances, 6);
   assertEquals(player.nextAllowanceAt, "2026-10-07T22:00:00Z");
 });
+
+Deno.test("player status reports specials locked below 100 and unlocked at 100", async () => {
+  for (const distinct of [99, 100]) {
+    const handler = createGameHandler(
+      config,
+      ((input: string | URL | Request) => {
+        const path = new URL(String(input)).pathname;
+        if (path === "/auth/v1/user") {
+          return Promise.resolve(Response.json({ id: userId }));
+        }
+        assertEquals(path, "/rest/v1/rpc/ensure_player");
+        return Promise.resolve(Response.json({
+          distinct_cards: distinct,
+          packs_opened: 10,
+          pack_allowances: 2,
+          next_pack_available_at: "2026-10-07T22:00:00Z",
+        }));
+      }) as typeof fetch,
+    );
+    const response = await handler(
+      new Request("http://localhost/game-api/me", {
+        headers: { Authorization: "Bearer test-user-token" },
+      }),
+    );
+    assertEquals(response.status, 200);
+    const player = await response.json();
+    assertEquals(player.specialsUnlocked, distinct >= 100);
+    assertEquals(player.negativesUnlocked, true);
+  }
+});

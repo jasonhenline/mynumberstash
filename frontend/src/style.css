@@ -252,7 +252,7 @@ a {
 }
 .stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   border-block: 1px solid #d9d8cf;
   margin: 30px 0 40px;
 }
@@ -379,6 +379,7 @@ footer {
     padding: 24px;
   }
   .stats {
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
   .stats strong {

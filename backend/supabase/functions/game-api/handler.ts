@@ -119,6 +119,8 @@ export function createGameHandler(
             packsOpened: player.packs_opened,
             negativesUnlocked:
               player.distinct_cards >= GAME_RULES.negativeUnlockDistinctCards,
+            specialsUnlocked:
+              player.distinct_cards >= GAME_RULES.specialUnlockDistinctCards,
             packAllowances: player.pack_allowances,
             maxPackAllowances: 6,
             nextAllowanceAt: player.next_pack_available_at,
