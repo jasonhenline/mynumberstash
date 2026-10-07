@@ -23,8 +23,11 @@ Deno.test("negatives are unavailable before the unlock threshold", () => {
 
 Deno.test("negative draws start at minus one and never produce negative zero", () => {
   let draw = 0;
-  const pack = generatePack(50, () => draw++ % 2 === 0 ? 0.1 : 0.99);
+  const pack = generatePack(50, () => draw++ % 2 === 0 ? 0.05 : 0.99);
   assertEquals(pack, Array(10).fill({ kind: "integer", value: "-1" }));
+  draw = 0;
+  const nonnegative = generatePack(50, () => draw++ % 2 === 0 ? 0.1 : 0.99);
+  assertEquals(nonnegative, Array(10).fill({ kind: "integer", value: "0" }));
 });
 
 Deno.test("geometric distribution has the expected mean and zero frequency", () => {

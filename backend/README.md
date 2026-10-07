@@ -18,7 +18,7 @@ cannot call the award function or write their own collection.
 - Nonnegative integers follow `P(N=n) = (1-r)r^n`, with `r=exp(-1/50)`. This
   matches flooring exponential samples with scale 50: mean approximately 49.50
   and standard deviation approximately 50.00, before negatives unlock.
-- After collecting 50 distinct cards, each draw has a 25% chance of being
+- After collecting 50 distinct cards, each draw has a 10% chance of being
   negative. Negative magnitude is `N+1`, so there is no negative zero. Newly
   unlocked cards become available starting with the next pack.
 - Integers are generated on the server using cryptographic randomness and

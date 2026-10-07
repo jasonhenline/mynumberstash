@@ -7,7 +7,7 @@ export const GAME_RULES = {
   // Matches flooring an exponential random variable with scale 50.
   geometricRatio: Math.exp(-1 / 50),
   negativeUnlockDistinctCards: 50,
-  negativeProbability: 0.25,
+  negativeProbability: 0.10,
 } as const;
 
 /** Uniform [0, 1), supplied by the server rather than the caller. */
