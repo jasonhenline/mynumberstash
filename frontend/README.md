@@ -33,6 +33,10 @@ pnpm test:web
 
 ## Production
 
+Live frontend: **https://number-club.pages.dev** (Cloudflare Pages project
+`number-club`). Use `pnpm deploy:web` from the repository root to publish
+updates.
+
 `pnpm build` produces `frontend/dist/`, connected automatically to
 `https://csmhjxjmxhdsrcqbgrxp.supabase.co`. Public configuration lives in
 `src/production-config.ts`; the publishable key is intended to be included in
@@ -67,9 +71,9 @@ Cloudflare's built-in Git integration requires creating a project in that mode
 instead; use `pnpm build` from the repository root and `frontend/dist` as its
 output directory.
 
-After the hosting URL is known, set that exact origin as the Supabase Auth Site
-URL and add it to the allowed redirect URLs. Configure SMTP for signup email
-delivery. Set the backend's `ALLOWED_ORIGINS` to the same origin. The site can
-be hosted first; collections and pack opening will work after the backend
+Set `https://number-club.pages.dev` as the Supabase Auth Site URL and add it to
+the allowed redirect URLs. Configure SMTP for signup email delivery. Set the
+backend's `ALLOWED_ORIGINS` to `https://number-club.pages.dev`. The site can be
+hosted first; collections and pack opening will work after the backend
 migrations and `game-api` function are deployed. See
 [backend deployment](../backend/README.md#deployment).

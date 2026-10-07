@@ -69,6 +69,9 @@ app details.
 
 ## Production frontend
 
+Live frontend: **https://number-club.pages.dev**. Publish updates with
+`pnpm deploy:web` after signing in to Cloudflare with Wrangler.
+
 `pnpm build` creates the production frontend in `frontend/dist/`, automatically
 connected to the hosted Supabase project. The URL and publishable key are public
 configuration in `frontend/src/production-config.ts`. Local development with
