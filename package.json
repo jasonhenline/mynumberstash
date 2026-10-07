@@ -1,0 +1,16 @@
+{
+  "name": "number-collection",
+  "private": true,
+  "packageManager": "pnpm@10.33.3",
+  "scripts": {
+    "dev": "pnpm --dir frontend dev",
+    "build": "pnpm --dir frontend build",
+    "test:web": "pnpm --dir frontend test",
+    "backend:start": "supabase --workdir backend start",
+    "backend:serve": "supabase --workdir backend functions serve game-api",
+    "backend:stop": "supabase --workdir backend stop"
+  },
+  "devDependencies": {
+    "supabase": "2.118.0"
+  }
+}

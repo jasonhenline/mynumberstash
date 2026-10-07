@@ -29,6 +29,10 @@ requires a migration.
 
 ## Development
 
+For an interactive local web app with signup and login, follow the
+[root setup guide](../README.md). The frontend uses the same authenticated API
+and enforces the normal cooldown; no authentication bypass is required.
+
 Requirements: Deno 2, Node/npm (for the CLI), and Docker for the local Supabase
 stack. The SQL migrations are the schema's source of truth, including
 permissions and database functions. Add new migrations instead of editing

@@ -7,3 +7,7 @@ coverage/
 *.tfstate
 *.tfstate.*
 .terraform/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+.pnpm-store/
