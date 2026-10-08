@@ -201,7 +201,8 @@ function albumMarkup(): string {
   const end = start + 99n;
   const owned = new Map(
     album!.cards.flatMap((item) =>
-      item.card.kind === "integer"
+      item.card.kind === "integer" &&
+        pageForNumber(BigInt(item.card.value)) === page
         ? [[item.card.value, item.quantity] as const]
         : []
     ),
@@ -336,24 +337,49 @@ async function api<T>(path: string, body?: object): Promise<T> {
 async function loadGame() {
   const userId = session?.user.id;
   if (!userId) return;
-  const [status, nextAlbum] = await Promise.all([
+  const [status, collection] = await Promise.all([
     api<Player>("/me"),
-    api<Album>(`/album?page=${encodeURIComponent(albumPage)}`),
+    api<{ cards: OwnedCard[] }>("/stash"),
   ]);
   if (session?.user.id !== userId) return;
   player = status;
   clockOffset = Date.parse(status.serverTime) - Date.now();
-  album = nextAlbum;
-  albumPage = nextAlbum.page;
+  let minPage = 0n;
+  let maxPage = 0n;
+  const cards: OwnedCard[] = [];
+  const specials: OwnedCard[] = [];
+  for (const item of collection.cards) {
+    if (item.card.kind === "special") {
+      specials.push(item);
+    } else {
+      cards.push(item);
+      const page = pageForNumber(BigInt(item.card.value));
+      if (page < minPage) minPage = page;
+      if (page > maxPage) maxPage = page;
+    }
+  }
+  const current = BigInt(albumPage);
+  albumPage = String(
+    current < minPage ? minPage : current > maxPage ? maxPage : current,
+  );
+  album = {
+    page: albumPage,
+    minPage: String(minPage),
+    maxPage: String(maxPage),
+    cards,
+    specials,
+  };
   render();
 }
 
-async function loadAlbum(page: string) {
-  const userId = session?.user.id;
-  const result = await api<Album>(`/album?page=${encodeURIComponent(page)}`);
-  if (!userId || session?.user.id !== userId) return;
-  album = result;
-  albumPage = result.page;
+function showAlbumPage(page: string) {
+  if (busy || !album) return;
+  const value = BigInt(page);
+  if (value < BigInt(album.minPage) || value > BigInt(album.maxPage)) return;
+  albumPage = page;
+  album.page = page;
+  message = "";
+  render();
 }
 
 async function run(action: () => Promise<void>) {
@@ -475,7 +501,7 @@ function bind() {
   ) {
     document.querySelector(`#${id}`)?.addEventListener(
       "click",
-      () => void run(() => loadAlbum(String(BigInt(albumPage) + delta))),
+      () => showAlbumPage(String(BigInt(albumPage) + delta)),
     );
   }
   document.querySelector<HTMLFormElement>("#jump-form")?.addEventListener(
@@ -501,7 +527,7 @@ function bind() {
         );
         return;
       }
-      void run(() => loadAlbum(String(page)));
+      showAlbumPage(String(page));
     },
   );
   document.querySelector("#open-pack")?.addEventListener(
@@ -574,7 +600,7 @@ function connect(config: Connection) {
         ? localStorage.getItem(pendingKey(session.user.id))
         : null;
       render();
-      if (session && !busy) {
+      if (session && !busy && (changedUser || !album)) {
         void loadGame().catch(() =>
           notify(
             localDevelopment

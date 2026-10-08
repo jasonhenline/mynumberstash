@@ -82,6 +82,12 @@ export function createGameHandler(
       const url = new URL(request.url);
       const path = url.pathname.replace(/^\/(?:functions\/v1\/)?game-api/, "");
 
+      if (request.method === "GET" && path === "/stash") {
+        const { data, error } = await userClient.rpc("collection_snapshot");
+        if (error) throw error;
+        return json(data);
+      }
+
       if (request.method === "GET" && path === "/album") {
         const page = url.searchParams.get("page") ?? "0";
         if (page.length > 200 || !/^(0|-?[1-9][0-9]*)$/.test(page)) {
@@ -184,7 +190,9 @@ export function createGameHandler(
         return json(pack);
       }
 
-      if (["/me", "/collection", "/album", "/packs/open"].includes(path)) {
+      if (
+        ["/me", "/collection", "/album", "/stash", "/packs/open"].includes(path)
+      ) {
         throw new HttpError(405, "method_not_allowed");
       }
       throw new HttpError(404, "not_found");

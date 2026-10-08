@@ -348,3 +348,31 @@ Deno.test("album reads use the user's token and validate exact page strings", as
   }
   assertEquals(reads, 1);
 });
+
+Deno.test("stash returns the full snapshot using the user's token", async () => {
+  const cards = [{ card: { kind: "integer", value: "-101" }, quantity: 3 }, {
+    card: { kind: "special", id: "phi", label: "φ" },
+    quantity: 2,
+  }];
+  const handler = createGameHandler(
+    config,
+    (async (input: string | URL | Request, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      if (path === "/auth/v1/user") return Response.json({ id: userId });
+      assertEquals(path, "/rest/v1/rpc/collection_snapshot");
+      assertEquals(await new Response(init?.body).json(), {});
+      assertEquals(
+        new Headers(init?.headers).get("Authorization"),
+        "Bearer test-user-token",
+      );
+      return Response.json({ cards });
+    }) as typeof fetch,
+  );
+  const response = await handler(
+    new Request("http://localhost/game-api/stash", {
+      headers: { Authorization: "Bearer test-user-token" },
+    }),
+  );
+  assertEquals(response.status, 200);
+  assertEquals(await response.json(), { cards });
+});

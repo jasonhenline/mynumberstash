@@ -292,6 +292,7 @@ Deno.test("album pages preserve integer boundaries, huge values, special labels,
         "20261007010000_pi_card.sql",
         "20261007020000_more_special_cards.sql",
         "20261007030000_integer_album.sql",
+        "20261008000000_collection_snapshot.sql",
       ]
     ) {
       await db.exec(
@@ -368,6 +369,33 @@ Deno.test("album pages preserve integer boundaries, huge values, special labels,
       huge,
     );
     assertEquals((await read("-999")).page, "-2");
+    const snapshot = async () =>
+      (await db.query<{
+        stash: {
+          cards: {
+            card: { kind: string; value?: string; id?: string; label?: string };
+            quantity: number;
+          }[];
+        };
+      }>("select public.collection_snapshot() as stash")).rows[0].stash;
+    const all = await snapshot();
+    assertEquals(all.cards.length, 10);
+    assertEquals(
+      all.cards.find((item) => item.card.value === huge)?.quantity,
+      2,
+    );
+    assertEquals(all.cards.find((item) => item.card.id === "phi"), {
+      card: { kind: "special", id: "phi", label: "φ" },
+      quantity: 3,
+    });
+    // A scalar JSON result includes every card, even beyond the API's row limit.
+    await db.exec("reset role; set role service_role");
+    await db.query(
+      "insert into public.collection(user_id, kind, integer_value, quantity) select $1, 'integer', n::text, 1 from generate_series(1000, 2199) n",
+      [user],
+    );
+    await db.exec("reset role; set role authenticated");
+    assertEquals((await snapshot()).cards.length, 1210);
     for (const invalid of ["01", "-0", "1.5", "abc", "9".repeat(201)]) {
       await assertRejects(() => read(invalid));
     }
@@ -381,8 +409,10 @@ Deno.test("album pages preserve integer boundaries, huge values, special labels,
       cards: [],
       specials: [],
     });
+    assertEquals(await snapshot(), { cards: [] });
     await db.exec("reset role; set role anon");
     await assertRejects(() => read("0"));
+    await assertRejects(snapshot);
   } finally {
     await db.close();
   }

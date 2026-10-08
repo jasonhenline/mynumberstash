@@ -13,6 +13,9 @@ provides:
 - Album bounds cover the full integer collection, including negative numbers and
   values beyond JavaScript's safe integer range. Page 0 (0–99) always exists.
 - Special numbers appear in their own section, independent of the integer page.
+- The entire collection is fetched once and held in memory. Page navigation
+  makes no network requests. Opening a pack, Refresh, or a page reload fetches a
+  fresh snapshot; signing out clears it.
 - Negative and special unlock milestones; π, e, φ, i, and √2 use catalog labels
   in packs and the stash. Specials unlock at 100 distinct cards with a 0.5%
   chance per draw.

@@ -16,19 +16,8 @@ type TestOwned = {
   card: { kind: string; value?: string; id?: string; label?: string };
   quantity: number;
 };
-function albumResponse(items: TestOwned[], page = "0") {
-  const integerCards = items.filter((item) => item.card.kind === "integer");
-  const pages = integerCards.map((item) => {
-    const value = BigInt(item.card.value!);
-    return value >= 0n ? value / 100n : (value - 99n) / 100n;
-  });
-  return {
-    page,
-    minPage: String(pages.reduce((a, b) => a < b ? a : b, 0n)),
-    maxPage: String(pages.reduce((a, b) => a > b ? a : b, 0n)),
-    cards: integerCards.filter((_, i) => pages[i] === BigInt(page)),
-    specials: items.filter((item) => item.card.kind === "special"),
-  };
+function snapshotResponse(items: TestOwned[]) {
+  return { cards: items };
 }
 const basePlayer = {
   distinctCards: 0,
@@ -126,10 +115,10 @@ test("signup uses local email confirmation; login, opening, collection, and sign
           },
         });
       }
-      if (path.endsWith("/album")) {
+      if (path.endsWith("/stash")) {
         return route.fulfill({
           headers,
-          json: albumResponse(opened ? collection : []),
+          json: snapshotResponse(opened ? collection : []),
         });
       }
       opened = true;
@@ -227,10 +216,10 @@ test("an interrupted opening retains its request ID across reload and recovers t
           },
         });
       }
-      if (path.endsWith("/album")) {
+      if (path.endsWith("/stash")) {
         return route.fulfill({
           headers,
-          json: albumResponse([]),
+          json: snapshotResponse([]),
         });
       }
       const nextId = route.request().postDataJSON().requestId;
@@ -309,10 +298,10 @@ for (const initial of [3, 6]) {
             },
           });
         }
-        if (path.endsWith("/album")) {
+        if (path.endsWith("/stash")) {
           return route.fulfill({
             headers,
-            json: albumResponse([]),
+            json: snapshotResponse([]),
           });
         }
         const id = route.request().postDataJSON().requestId;
@@ -388,10 +377,10 @@ test("reaching 100 unlocks specials and pi renders in packs and the stash", asyn
           },
         });
       }
-      if (path.endsWith("/album")) {
+      if (path.endsWith("/stash")) {
         return route.fulfill({
           headers,
-          json: albumResponse(opened > 1 ? [{ card: pi, quantity: 2 }] : []),
+          json: snapshotResponse(opened > 1 ? [{ card: pi, quantity: 2 }] : []),
         });
       }
       opened++;
@@ -470,10 +459,10 @@ test("all special symbols render from API labels in packs and the stash", async 
           },
         });
       }
-      if (path.endsWith("/album")) {
+      if (path.endsWith("/stash")) {
         return route.fulfill({
           headers,
-          json: albumResponse(
+          json: snapshotResponse(
             opened ? specials.map((card) => ({ card, quantity: 2 })) : [],
           ),
         });
@@ -521,6 +510,7 @@ test("integer album has 100 slots, exact negative pages, bounded jumps, and sepa
   ]
     .map((value) => ({ card: { kind: "integer", value }, quantity: 3 }));
   items.push({ card: { kind: "special", id: "phi", label: "φ" }, quantity: 4 });
+  let snapshotReads = 0;
   await page.route(
     "http://127.0.0.1:54321/functions/v1/game-api/**",
     async (route) => {
@@ -546,10 +536,11 @@ test("integer album has 100 slots, exact negative pages, bounded jumps, and sepa
           },
         });
       }
-      expect(url.pathname.endsWith("/album")).toBe(true);
+      expect(url.pathname.endsWith("/stash")).toBe(true);
+      snapshotReads++;
       return route.fulfill({
         headers,
-        json: albumResponse(items, url.searchParams.get("page") ?? "0"),
+        json: snapshotResponse(items),
       });
     },
   );
@@ -607,6 +598,17 @@ test("integer album has 100 slots, exact negative pages, bounded jumps, and sepa
   await expect(page.locator(".album-slot.owned")).toHaveAttribute(
     "aria-label",
     `${huge}: 3 stashed`,
+  );
+  expect(snapshotReads).toBe(1);
+  items.find((item) => item.card.value === huge)!.quantity = 8;
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect(page.locator(".album-slot.owned")).toHaveAttribute(
+    "aria-label",
+    `${huge}: 8 stashed`,
+  );
+  expect(snapshotReads).toBe(2);
+  await expect(page.locator("#page-range")).toHaveText(
+    `${start} to ${start + 99n}`,
   );
   await page.getByLabel("Jump to number").fill("1" + huge);
   await page.getByRole("button", { name: "Go", exact: true }).click();
