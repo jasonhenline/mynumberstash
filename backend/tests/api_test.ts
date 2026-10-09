@@ -376,3 +376,33 @@ Deno.test("stash returns the full snapshot using the user's token", async () => 
   assertEquals(response.status, 200);
   assertEquals(await response.json(), { cards });
 });
+
+Deno.test("pack history reads use user auth and reject invalid offsets", async () => {
+  let reads = 0;
+  const handler = createGameHandler(
+    config,
+    (async (input: string | URL | Request, init?: RequestInit) => {
+      const path = new URL(String(input)).pathname;
+      if (path === "/auth/v1/user") return Response.json({ id: userId });
+      assertEquals(path, "/rest/v1/rpc/pack_history");
+      assertEquals(
+        new Headers(init?.headers).get("Authorization"),
+        "Bearer test-user-token",
+      );
+      assertEquals(await new Response(init?.body).json(), { p_offset: 20 });
+      reads++;
+      return Response.json({ packs: [], nextOffset: null });
+    }) as typeof fetch,
+  );
+  const request = (offset: string) =>
+    new Request(`http://localhost/game-api/packs?offset=${offset}`, {
+      headers: { Authorization: "Bearer test-user-token" },
+    });
+  const result = await handler(request("20"));
+  assertEquals(result.status, 200);
+  assertEquals(await result.json(), { packs: [], nextOffset: null });
+  for (const invalid of ["-1", "01", "1.5", "abc", "2147483648"]) {
+    assertEquals((await handler(request(invalid))).status, 400);
+  }
+  assertEquals(reads, 1);
+});

@@ -332,6 +332,35 @@ a {
   border-top: 1px solid var(--border);
   margin-top: 28px;
 }
+.pack-history, .share-fallback {
+  border-top: 1px solid var(--border);
+  margin-top: 28px;
+  padding-top: 20px;
+}
+.past-pack {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+}
+.past-pack h3 {
+  font-size: 16px;
+  font-weight: 500;
+}
+.past-pack .section-heading {
+  gap: 16px;
+}
+.past-pack button {
+  flex-shrink: 0;
+}
+#share-text {
+  width: 100%;
+  background: var(--empty);
+  color: var(--text);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  padding: 16px;
+  font: inherit;
+  line-height: 1.6;
+}
 .pack-cards {
   grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
   gap: 10px;

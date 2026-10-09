@@ -82,6 +82,18 @@ export function createGameHandler(
       const url = new URL(request.url);
       const path = url.pathname.replace(/^\/(?:functions\/v1\/)?game-api/, "");
 
+      if (request.method === "GET" && path === "/packs") {
+        const offset = url.searchParams.get("offset") ?? "0";
+        if (!/^(0|[1-9][0-9]*)$/.test(offset) || Number(offset) > 2147483627) {
+          throw new HttpError(400, "invalid_offset");
+        }
+        const { data, error } = await userClient.rpc("pack_history", {
+          p_offset: Number(offset),
+        });
+        if (error) throw error;
+        return json(data);
+      }
+
       if (request.method === "GET" && path === "/stash") {
         const { data, error } = await userClient.rpc("collection_snapshot");
         if (error) throw error;
@@ -191,7 +203,8 @@ export function createGameHandler(
       }
 
       if (
-        ["/me", "/collection", "/album", "/stash", "/packs/open"].includes(path)
+        ["/me", "/collection", "/album", "/stash", "/packs", "/packs/open"]
+          .includes(path)
       ) {
         throw new HttpError(405, "method_not_allowed");
       }

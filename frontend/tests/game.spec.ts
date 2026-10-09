@@ -735,3 +735,162 @@ test("packs sort by exact absolute value with specials last and mark discoveries
   await page.getByRole("button", { name: "Open a pack" }).click();
   await expect(page.locator(".pack-cards .new-card-marker")).toHaveCount(0);
 });
+
+test("past packs load on demand and copy shareable cards with original discoveries", async ({ page }) => {
+  await mockAuth(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: {
+        writeText: async (text: string) => {
+          const state = globalThis as unknown as {
+            copied: string;
+            failCopy: boolean;
+          };
+          if (state.failCopy) throw new Error("Clipboard unavailable");
+          state.copied = text;
+        },
+      },
+    });
+  });
+  const values = [
+    "400",
+    "0",
+    "99",
+    "100",
+    "-100",
+    "-101",
+    "200",
+    "300",
+    "123456789012345678901234567890",
+  ];
+  const draw = [...values.map((value) => ({ kind: "integer", value })), {
+    kind: "special",
+    id: "pi",
+    label: "π",
+  }];
+  const recent = {
+    requestId: "recent",
+    openedAt: "2026-10-09T12:00:00Z",
+    cards: draw,
+    newCardKeys: ["integer:0", "integer:100", "special:pi"],
+  };
+  const older = {
+    ...recent,
+    requestId: "older",
+    openedAt: "2026-10-08T12:00:00Z",
+    newCardKeys: [],
+  };
+  let reads = 0;
+  let opened = false;
+  await page.route(
+    "http://127.0.0.1:54321/functions/v1/game-api/**",
+    async (route) => {
+      const headers = {
+        "Access-Control-Allow-Origin": "http://localhost:5173",
+        "Access-Control-Allow-Headers": "*",
+      };
+      if (route.request().method() === "OPTIONS") {
+        return route.fulfill({
+          status: 204,
+          headers,
+        });
+      }
+      const url = new URL(route.request().url());
+      if (url.pathname.endsWith("/me")) {
+        return route.fulfill({
+          headers,
+          json: {
+            ...basePlayer,
+            packAllowances: opened ? 0 : 1,
+            serverTime: new Date().toISOString(),
+          },
+        });
+      }
+      if (url.pathname.endsWith("/stash")) {
+        return route.fulfill({
+          headers,
+          json: snapshotResponse(draw.map((card) => ({ card, quantity: 5 }))),
+        });
+      }
+      if (url.pathname.endsWith("/packs")) {
+        reads++;
+        return route.fulfill({
+          headers,
+          json: url.searchParams.get("offset") === "20"
+            ? { packs: [older], nextOffset: null }
+            : { packs: [recent], nextOffset: 20 },
+        });
+      }
+      opened = true;
+      return route.fulfill({
+        headers,
+        json: {
+          ...recent,
+          replayed: false,
+          packAllowances: 0,
+          nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
+        },
+      });
+    },
+  );
+  await connect(page);
+  await signIn(page);
+  expect(reads).toBe(0);
+  await page.getByRole("button", { name: "View past packs" }).click();
+  await expect(page.locator(".past-pack")).toHaveCount(1);
+  await expect(page.locator(".past-pack .new-card-marker")).toHaveCount(3);
+  await page.locator(".past-pack").getByRole("button", { name: "Copy pack" })
+    .click();
+  const expected =
+    "⬜ 0 ✨\n⬜ 99\n⬜ -100\n🟩 100 ✨\n🟩 -101\n🟦 200\n🟪 300\n🟥 400\n🟥 123456789012345678901234567890\n🟨 π ✨\n\nhttps://mynumberstash.com";
+  expect(
+    await page.evaluate(() =>
+      (globalThis as unknown as { copied: string }).copied
+    ),
+  ).toBe(expected);
+  await page.getByRole("button", { name: "Load older packs" }).click();
+  await expect(page.locator(".past-pack")).toHaveCount(2);
+  await expect(page.locator(".past-pack").nth(1).locator(".new-card-marker"))
+    .toHaveCount(0);
+  await page.locator(".past-pack").nth(1).getByRole("button", {
+    name: "Copy pack",
+  }).click();
+  expect(
+    await page.evaluate(() =>
+      (globalThis as unknown as { copied: string }).copied
+    ),
+  ).toBe(expected.replaceAll(" ✨", ""));
+  await page.getByRole("button", { name: "Hide past packs" }).click();
+  await page.getByRole("button", { name: "View past packs" }).click();
+  expect(reads).toBe(2);
+  await page.getByRole("button", { name: "Open a pack" }).click();
+  await expect(page.locator(".past-pack")).toHaveCount(1);
+  expect(reads).toBe(3);
+  await page.locator("#latest-pack").getByRole("button", { name: "Copy pack" })
+    .click();
+  expect(
+    await page.evaluate(() =>
+      (globalThis as unknown as { copied: string }).copied
+    ),
+  ).toBe(expected);
+  await page.evaluate(() => {
+    (globalThis as unknown as { failCopy: boolean }).failCopy = true;
+  });
+  await page.locator(".past-pack").getByRole("button", { name: "Copy pack" })
+    .click();
+  await expect(page.getByLabel("Copy this text into your post")).toHaveValue(
+    expected,
+  );
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.locator(".past-pack").screenshot({
+    path: "test-results/pack-history-mobile.png",
+  });
+  expect(
+    await page.evaluate(() =>
+      document.documentElement.scrollWidth <= innerWidth
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.locator(".past-pack")).toHaveCount(0);
+  await expect(page.locator("#share-text")).toHaveCount(0);
+});

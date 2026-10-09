@@ -39,6 +39,11 @@ type Pack = {
   nextAllowanceAt: string;
 };
 type Connection = { url: string; key: string };
+type PastPack = Pick<Pack, "cards" | "newCardKeys"> & {
+  requestId: string;
+  openedAt: string;
+};
+type PackHistory = { packs: PastPack[]; nextOffset: number | null };
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 let client: SupabaseClient | null = null;
@@ -48,6 +53,9 @@ let player: Player | null = null;
 let album: Album | null = null;
 let albumPage = "0";
 let pack: Pack | null = null;
+let history: PackHistory | null = null;
+let historyOpen = false;
+let shareText = "";
 let pendingId: string | null = null;
 let busy = false;
 let message = "";
@@ -95,6 +103,78 @@ function comparePackCards(a: Card, b: Card): number {
     : first > second
     ? 1
     : 0;
+}
+
+function packCardsMarkup(value: Pick<Pack, "cards" | "newCardKeys">): string {
+  return [...value.cards].sort(comparePackCards).map((card) =>
+    cardMarkup(card, undefined, value.newCardKeys?.includes(cardKey(card)))
+  ).join("");
+}
+
+function sharePack(value: Pick<Pack, "cards" | "newCardKeys">): string {
+  const lines = [...value.cards].sort(comparePackCards).map((card) => {
+    let color = "🟨";
+    if (card.kind === "integer") {
+      const page = pageForNumber(BigInt(card.value));
+      const band = page < 0n ? -page - 1n : page;
+      color = ["⬜", "🟩", "🟦", "🟪", "🟥"][Number(band > 4n ? 4n : band)];
+    }
+    return `${color} ${label(card)}${
+      value.newCardKeys?.includes(cardKey(card)) ? " ✨" : ""
+    }`;
+  });
+  return `${lines.join("\n")}\n\nhttps://mynumberstash.com`;
+}
+
+async function copyPack(value: Pick<Pack, "cards" | "newCardKeys">) {
+  const text = sharePack(value);
+  try {
+    await navigator.clipboard.writeText(text);
+    shareText = "";
+    notify("Pack copied. Paste it into your post!");
+  } catch {
+    shareText = text;
+    render();
+    const field = document.querySelector<HTMLTextAreaElement>("#share-text");
+    field?.focus();
+    field?.select();
+  }
+}
+
+function historyMarkup(): string {
+  return `<section class="pack-history"><button id="toggle-history" class="text-button" aria-expanded="${historyOpen}" aria-controls="history-content">${
+    historyOpen ? "Hide past packs" : "View past packs"
+  }</button>${
+    historyOpen
+      ? `<div id="history-content"><div class="section-heading"><h2>Past packs</h2><button id="refresh-history" class="text-button" ${
+        busy ? "disabled" : ""
+      }>Refresh history ↻</button></div><p class="fine-print">Share colors: ⬜ first page on either side of zero, 🟩 second, 🟦 third, 🟪 fourth, 🟥 fifth and beyond. 🟨 special · ✨ new in that pack.</p>${
+        history
+          ? history.packs.length
+            ? history.packs.map((item) =>
+              `<article class="past-pack"><div class="section-heading"><h3><time datetime="${
+                escape(item.openedAt)
+              }">${
+                escape(new Date(item.openedAt).toLocaleString())
+              }</time></h3><button class="secondary" data-copy-pack="${
+                escape(item.requestId)
+              }" ${
+                busy ? "disabled" : ""
+              }>Copy pack</button></div><div class="cards pack-cards">${
+                packCardsMarkup(item)
+              }</div></article>`
+            ).join("")
+            : "<p>No packs opened yet. Your first pack will appear here.</p>"
+          : "<p>Load your past packs using Refresh history.</p>"
+      }${
+        history?.nextOffset !== null && history
+          ? `<button id="more-history" class="secondary" ${
+            busy ? "disabled" : ""
+          }>Load older packs</button>`
+          : ""
+      }</div>`
+      : ""
+  }</section>`;
 }
 
 function cardMarkup(card: Card, quantity?: number, isNew = false): string {
@@ -210,15 +290,17 @@ function gameMarkup(): string {
     pack
       ? `<section class="latest-pack" id="latest-pack"><div class="section-heading"><h2>${
         pack.replayed ? "Your recovered pack" : "Your latest pack"
-      }</h2><span>${pack.cards.length} cards</span></div><div class="cards pack-cards">${
-        [...pack.cards].sort(comparePackCards).map((card) =>
-          cardMarkup(
-            card,
-            undefined,
-            pack!.newCardKeys?.includes(cardKey(card)),
-          )
-        ).join("")
+      }</h2><button id="copy-latest" class="secondary" ${
+        busy ? "disabled" : ""
+      }>Copy pack</button></div><div class="cards pack-cards">${
+        packCardsMarkup(pack)
       }</div></section>`
+      : ""
+  }${historyMarkup()}${
+    shareText
+      ? `<section class="share-fallback"><label for="share-text">Copy this text into your post</label><p class="fine-print">Clipboard access wasn’t available. Select and copy the text below.</p><textarea id="share-text" readonly rows="13">${
+        escape(shareText)
+      }</textarea></section>`
       : ""
   }`;
 }
@@ -369,12 +451,14 @@ async function api<T>(path: string, body?: object): Promise<T> {
 async function loadGame() {
   const userId = session?.user.id;
   if (!userId) return;
-  const [status, collection] = await Promise.all([
+  const [status, collection, refreshedHistory] = await Promise.all([
     api<Player>("/me"),
     api<{ cards: OwnedCard[] }>("/stash"),
+    historyOpen ? api<PackHistory>("/packs") : Promise.resolve(null),
   ]);
   if (session?.user.id !== userId) return;
   player = status;
+  history = refreshedHistory;
   clockOffset = Date.parse(status.serverTime) - Date.now();
   let minPage = 0n;
   let maxPage = 0n;
@@ -414,6 +498,18 @@ function showAlbumPage(page: string) {
   render();
 }
 
+async function loadHistory(append = false) {
+  const userId = session?.user.id;
+  const result = await api<PackHistory>(
+    `/packs?offset=${append ? history?.nextOffset ?? 0 : 0}`,
+  );
+  if (!userId || session?.user.id !== userId) return;
+  history = {
+    packs: append ? [...(history?.packs ?? []), ...result.packs] : result.packs,
+    nextOffset: result.nextOffset,
+  };
+}
+
 async function run(action: () => Promise<void>) {
   if (busy) return;
   busy = true;
@@ -431,6 +527,32 @@ async function run(action: () => Promise<void>) {
 }
 
 function bind() {
+  document.querySelector("#toggle-history")?.addEventListener("click", () => {
+    if (busy) return;
+    historyOpen = !historyOpen;
+    if (historyOpen && !history) void run(() => loadHistory());
+    else render();
+  });
+  document.querySelector("#refresh-history")?.addEventListener(
+    "click",
+    () => void run(() => loadHistory()),
+  );
+  document.querySelector("#more-history")?.addEventListener(
+    "click",
+    () => void run(() => loadHistory(true)),
+  );
+  document.querySelector("#copy-latest")?.addEventListener("click", () => {
+    if (pack) void copyPack(pack);
+  });
+  document.querySelectorAll<HTMLButtonElement>("[data-copy-pack]").forEach(
+    (button) =>
+      button.addEventListener("click", () => {
+        const item = history?.packs.find((value) =>
+          value.requestId === button.dataset.copyPack
+        );
+        if (item) void copyPack(item);
+      }),
+  );
   document.querySelector<HTMLFormElement>("#connect-form")?.addEventListener(
     "submit",
     (event) => {
@@ -521,6 +643,9 @@ function bind() {
         album = null;
         albumPage = "0";
         pack = null;
+        history = null;
+        historyOpen = false;
+        shareText = "";
         pendingId = null;
       }),
   );
@@ -609,6 +734,9 @@ function connect(config: Connection) {
   album = null;
   albumPage = "0";
   pack = null;
+  history = null;
+  historyOpen = false;
+  shareText = "";
   pendingId = null;
   if (localDevelopment) {
     localStorage.setItem("number-club.connection", JSON.stringify(config));
@@ -627,6 +755,9 @@ function connect(config: Connection) {
         album = null;
         albumPage = "0";
         pack = null;
+        history = null;
+        historyOpen = false;
+        shareText = "";
       }
       pendingId = session
         ? localStorage.getItem(pendingKey(session.user.id))

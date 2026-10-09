@@ -91,6 +91,7 @@ routes require a Supabase user bearer token.
 | ------ | ---------------------------------- | -------------------------------------------------------- |
 | GET    | `/me`                              | Player progression, next pack time, and server time      |
 | GET    | `/stash`                           | Full owned collection, quantities, and special labels    |
+| GET    | `/packs?offset=0`                  | Past packs, newest first, 20 per response                |
 | GET    | `/collection?limit=100&cursor=...` | Owned cards, quantities, and an optional next cursor     |
 | GET    | `/album?page=0`                    | Integer page, full collection bounds, and owned specials |
 | POST   | `/packs/open`                      | Open or recover a pack                                   |
@@ -224,3 +225,7 @@ environment. Configure these GitHub environment secrets:
 `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, and `SUPABASE_PROJECT_REF`.
 Supply credentials through the secret store; never commit them. Configure hosted
 Auth redirect URLs and an email provider or social login before public launch.
+
+`GET /packs` returns `packs` with `requestId`, `openedAt`, `cards`, and original
+`newCardKeys`, plus `nextOffset` (null at the end). Reads use the authenticated
+user under RLS. History fills in catalog labels for older special cards.

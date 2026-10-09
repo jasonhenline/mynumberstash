@@ -312,6 +312,7 @@ Deno.test("album pages preserve integer boundaries, huge values, special labels,
         "20261007020000_more_special_cards.sql",
         "20261007030000_integer_album.sql",
         "20261008000000_collection_snapshot.sql",
+        "20261009010000_pack_history.sql",
       ]
     ) {
       await db.exec(
@@ -344,6 +345,21 @@ Deno.test("album pages preserve integer boundaries, huge values, special labels,
       "insert into public.collection(user_id, kind, special_id, quantity) values ($1, 'special', 'phi', 3)",
       [user],
     );
+    const historyCards = [...Array(9).fill({ kind: "integer", value: "0" }), {
+      kind: "special",
+      id: "phi",
+    }];
+    await db.query(
+      `insert into public.opened_packs(user_id, request_id, opened_at, next_pack_available_at, cards, pack_allowances)
+      select $1, ('10000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid,
+        timestamptz '2026-10-09 00:00:00+00' + n * interval '1 second',
+        timestamptz '2026-10-09 04:00:00+00', $2::jsonb, 0 from generate_series(1, 25) n`,
+      [user, JSON.stringify(historyCards)],
+    );
+    await db.query(
+      "update public.collection set first_collected_at = '2026-10-09 00:00:25+00' where user_id = $1 and card_key in ('integer:0', 'special:phi')",
+      [user],
+    );
     await db.exec("reset role; set role authenticated");
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [
       user,
@@ -358,6 +374,41 @@ Deno.test("album pages preserve integer boundaries, huge values, special labels,
           specials: unknown[];
         };
       }>("select public.collection_album($1) as album", [page])).rows[0].album;
+    const historyRead = async (offset = 0) =>
+      (await db.query<
+        {
+          history: {
+            packs: {
+              requestId: string;
+              cards: unknown[];
+              newCardKeys: string[];
+            }[];
+            nextOffset: number | null;
+          };
+        }
+      >("select public.pack_history($1) as history", [offset])).rows[0].history;
+    const firstHistory = await historyRead();
+    assertEquals(firstHistory.packs.length, 20);
+    assertEquals(firstHistory.nextOffset, 20);
+    assertEquals(
+      firstHistory.packs[0].requestId,
+      "10000000-0000-4000-8000-000000000025",
+    );
+    assertEquals(firstHistory.packs[0].newCardKeys, [
+      "integer:0",
+      "special:phi",
+    ]);
+    assertEquals(firstHistory.packs[0].cards[9], {
+      kind: "special",
+      id: "phi",
+      label: "φ",
+    });
+    assertEquals(firstHistory.packs[1].newCardKeys, []);
+    const older = await historyRead(20);
+    assertEquals(older.packs.length, 5);
+    assertEquals(older.nextOffset, null);
+    assertEquals((await historyRead(25)).packs, []);
+    await assertRejects(() => historyRead(-1));
     const zero = await read("0");
     assertEquals(zero.minPage, "-2");
     assertEquals(zero.maxPage, String(BigInt(huge) / 100n));
@@ -429,9 +480,11 @@ Deno.test("album pages preserve integer boundaries, huge values, special labels,
       specials: [],
     });
     assertEquals(await snapshot(), { cards: [] });
+    assertEquals(await historyRead(), { packs: [], nextOffset: null });
     await db.exec("reset role; set role anon");
     await assertRejects(() => read("0"));
     await assertRejects(snapshot);
+    await assertRejects(() => historyRead());
   } finally {
     await db.close();
   }
