@@ -349,6 +349,21 @@ a {
   font-size: 8px;
   color: var(--muted);
 }
+.card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.new-card-marker {
+  background: var(--button);
+  color: var(--on-button);
+  border-radius: 3px;
+  padding: 3px 4px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
 .number {
   font-family: "Space Mono", monospace;
   font-size: 38px;

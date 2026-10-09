@@ -33,6 +33,7 @@ type Player = {
 };
 type Pack = {
   cards: Card[];
+  newCardKeys: string[];
   replayed: boolean;
   packAllowances: number;
   nextAllowanceAt: string;
@@ -75,10 +76,35 @@ function notify(text: string, kind: "success" | "error" = "success") {
   render();
 }
 
-function cardMarkup(card: Card, quantity?: number): string {
-  return `<div class="number-card"><span class="card-kind">${
+const cardKey = (card: Card): string =>
+  card.kind === "integer" ? `integer:${card.value}` : `special:${card.id}`;
+
+function comparePackCards(a: Card, b: Card): number {
+  if (a.kind === "special") return b.kind === "special" ? 0 : 1;
+  if (b.kind === "special") return -1;
+  const first = BigInt(a.value);
+  const second = BigInt(b.value);
+  const absFirst = first < 0n ? -first : first;
+  const absSecond = second < 0n ? -second : second;
+  return absFirst < absSecond
+    ? -1
+    : absFirst > absSecond
+    ? 1
+    : first < second
+    ? -1
+    : first > second
+    ? 1
+    : 0;
+}
+
+function cardMarkup(card: Card, quantity?: number, isNew = false): string {
+  return `<div class="number-card"><div class="card-heading"><span class="card-kind">${
     card.kind === "integer" ? "INTEGER" : "SPECIAL"
-  }</span>
+  }</span>${
+    isNew
+      ? '<span class="new-card-marker" aria-label="New to your stash">NEW</span>'
+      : ""
+  }</div>
     <span class="number">${escape(label(card))}</span>
     <span class="card-footer">${
     quantity === undefined ? "MY NUMBER STASH" : `× ${escape(quantity)} stashed`
@@ -184,8 +210,14 @@ function gameMarkup(): string {
     pack
       ? `<section class="latest-pack" id="latest-pack"><div class="section-heading"><h2>${
         pack.replayed ? "Your recovered pack" : "Your latest pack"
-      }</h2><span>10 new cards</span></div><div class="cards pack-cards">${
-        pack.cards.map((card) => cardMarkup(card)).join("")
+      }</h2><span>${pack.cards.length} cards</span></div><div class="cards pack-cards">${
+        [...pack.cards].sort(comparePackCards).map((card) =>
+          cardMarkup(
+            card,
+            undefined,
+            pack!.newCardKeys?.includes(cardKey(card)),
+          )
+        ).join("")
       }</div></section>`
       : ""
   }`;

@@ -219,7 +219,7 @@ test("an interrupted opening retains its request ID across reload and recovers t
       if (path.endsWith("/stash")) {
         return route.fulfill({
           headers,
-          json: snapshotResponse([]),
+          json: snapshotResponse(failed ? collection : []),
         });
       }
       const nextId = route.request().postDataJSON().requestId;
@@ -234,6 +234,7 @@ test("an interrupted opening retains its request ID across reload and recovers t
         json: {
           cards,
           replayed: true,
+          newCardKeys: cards.map((card) => `integer:${card.value}`),
           packAllowances: 0,
           nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
         },
@@ -251,6 +252,7 @@ test("an interrupted opening retains its request ID across reload and recovers t
   await page.getByRole("button", { name: "Retry pack opening" }).click();
   await expect(page.getByRole("heading", { name: "Your recovered pack" }))
     .toBeVisible();
+  await expect(page.locator(".pack-cards .new-card-marker")).toHaveCount(10);
   await expect(page.getByRole("button", { name: "Open a pack" }))
     .toBeDisabled();
 });
@@ -629,4 +631,107 @@ test("integer album has 100 slots, exact negative pages, bounded jumps, and sepa
       document.documentElement.scrollWidth <= innerWidth
     ),
   ).toBe(true);
+});
+
+test("packs sort by exact absolute value with specials last and mark discoveries", async ({ page }) => {
+  await mockAuth(page);
+  const huge = "123456789012345678901234567890";
+  const pi = { kind: "special", id: "pi", label: "π" };
+  const phi = { kind: "special", id: "phi", label: "φ" };
+  const drawn = [
+    { kind: "integer", value: `-${huge}` },
+    pi,
+    ...["2", "-2", "0", "-2", "-10", huge].map((value) => ({
+      kind: "integer",
+      value,
+    })),
+    phi,
+    { kind: "integer", value: "-1" },
+  ];
+  let openings = 0;
+  await page.route(
+    "http://127.0.0.1:54321/functions/v1/game-api/**",
+    async (route) => {
+      const headers = {
+        "Access-Control-Allow-Origin": "http://localhost:5173",
+        "Access-Control-Allow-Headers": "*",
+      };
+      if (route.request().method() === "OPTIONS") {
+        return route.fulfill({
+          status: 204,
+          headers,
+        });
+      }
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/me")) {
+        return route.fulfill({
+          headers,
+          json: {
+            ...basePlayer,
+            packAllowances: 2 - openings,
+            serverTime: new Date().toISOString(),
+          },
+        });
+      }
+      if (path.endsWith("/stash")) {
+        return route.fulfill({
+          headers,
+          json: snapshotResponse(
+            (openings ? drawn : [{ kind: "integer", value: "2" }, pi]).map(
+              (card) => ({ card, quantity: 1 }),
+            ),
+          ),
+        });
+      }
+      openings++;
+      return route.fulfill({
+        headers,
+        json: {
+          cards: drawn,
+          newCardKeys: openings === 1
+            ? [
+              "integer:0",
+              "integer:-1",
+              "integer:-2",
+              "integer:-10",
+              `integer:${huge}`,
+              `integer:-${huge}`,
+              "special:phi",
+            ]
+            : [],
+          replayed: false,
+          packAllowances: 2 - openings,
+          nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
+        },
+      });
+    },
+  );
+  await connect(page);
+  await signIn(page);
+  await page.getByRole("button", { name: "Open a pack" }).click();
+  await expect(page.locator(".pack-cards .number")).toHaveText([
+    "0",
+    "-1",
+    "-2",
+    "-2",
+    "2",
+    "-10",
+    `-${huge}`,
+    huge,
+    "π",
+    "φ",
+  ]);
+  await expect(page.locator(".pack-cards .new-card-marker")).toHaveCount(8);
+  const displayed = page.locator(".pack-cards .number-card");
+  await expect(displayed.nth(4).locator(".new-card-marker")).toHaveCount(0);
+  await expect(displayed.nth(8).locator(".new-card-marker")).toHaveCount(0);
+  await expect(displayed.nth(9).locator(".new-card-marker")).toHaveText("NEW");
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.locator("#latest-pack").screenshot({
+    path: "test-results/pack-discoveries-mobile.png",
+  });
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect(page.locator(".pack-cards .new-card-marker")).toHaveCount(8);
+  await page.getByRole("button", { name: "Open a pack" }).click();
+  await expect(page.locator(".pack-cards .new-card-marker")).toHaveCount(0);
 });

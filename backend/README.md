@@ -121,6 +121,11 @@ Generate a new UUID for each intended opening. Keep it when retrying a failed
 request; an opening with the same ID returns its original cards, even during the
 cooldown. No client-selected cards or user IDs are accepted.
 
+Pack responses include `newCardKeys`, such as `integer:-2` or `special:pi`, for
+cards first discovered in that pack. The award records the same timestamp on the
+pack and each newly collected number; retries use that timestamp to recover the
+original discoveries even after later packs have increased their quantities.
+
 Successful pack response:
 
 ```json

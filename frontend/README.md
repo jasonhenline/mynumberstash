@@ -8,6 +8,9 @@ provides:
 - A pack-opening button, balance of up to six packs, and refill countdown using
   the backend's server time. The displayed balance updates as allowances refill.
 - Pack recovery with the same request ID after a lost response or page reload.
+- Displayed packs sort integers by absolute value (negative first for ties),
+  with specials last. NEW badges mark numbers absent before that pack, including
+  all copies of a newly discovered number. Recovered packs retain their badges.
 - An integer album with 10×10 pages, empty slots for missing numbers, duplicate
   quantities, Previous/Next navigation, and jumping directly to a number.
 - Album bounds cover the full integer collection, including negative numbers and

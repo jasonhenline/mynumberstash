@@ -68,6 +68,14 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
       ],
     );
     const user = "00000000-0000-4000-8000-000000000001";
+    await db.exec(
+      await Deno.readTextFile(
+        new URL(
+          "../supabase/migrations/20261009000000_pack_discoveries.sql",
+          import.meta.url,
+        ),
+      ),
+    );
     const other = "00000000-0000-4000-8000-000000000002";
     const id = "10000000-0000-4000-8000-000000000001";
     const secondId = "10000000-0000-4000-8000-000000000002";
@@ -83,6 +91,7 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
     const first = await award(id);
     assertEquals(first.replayed, false);
     assertEquals(first.cards, cards);
+    assertEquals(first.newCardKeys, ["integer:0"]);
     assertEquals(first.packAllowances, 0);
     assertAlmostEquals(
       Date.parse(first.nextAllowanceAt as string) -
@@ -90,7 +99,9 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
       4 * 60 * 60 * 1000,
       1000,
     );
-    assertEquals((await award(id)).replayed, true);
+    const recovered = await award(id);
+    assertEquals(recovered.replayed, true);
+    assertEquals(recovered.newCardKeys, first.newCardKeys);
     assertEquals((await award(secondId)).error, "cooldown");
     assertEquals(
       (await db.query("select quantity from public.collection")).rows,
@@ -133,6 +144,10 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
     large[0] = { kind: "integer", value: "123456789012345678901234567890" };
     const second = await award(secondId, large, 1);
     assertEquals(second.replayed, false);
+    assertEquals(second.newCardKeys, [
+      "integer:123456789012345678901234567890",
+    ]);
+    assertEquals((await award(id)).newCardKeys, ["integer:0"]);
     assertEquals(
       (await db.query("select distinct_cards from public.players")).rows,
       [{ distinct_cards: 2 }],
@@ -155,11 +170,15 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
         ],
       )
     );
-    await db.query("select public.award_pack($1, $2, 2, $3::jsonb)", [
-      user,
-      specialRequest,
-      JSON.stringify(specialCards),
-    ]);
+    const specialAward = await db.query<{ pack: { newCardKeys: string[] } }>(
+      "select public.award_pack($1, $2, 2, $3::jsonb) as pack",
+      [
+        user,
+        specialRequest,
+        JSON.stringify(specialCards),
+      ],
+    );
+    assertEquals(specialAward.rows[0].pack.newCardKeys, ["special:pi"]);
     assertEquals(
       (await db.query(
         "select quantity from public.collection where special_id = 'pi'",
