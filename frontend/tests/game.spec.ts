@@ -432,6 +432,10 @@ test("all special symbols render from API labels in packs and the stash", async 
     { kind: "special", id: "phi", label: "φ" },
     { kind: "special", id: "i", label: "i" },
     { kind: "special", id: "sqrt2", label: "√2" },
+    { kind: "special", id: "sqrt3", label: "√3" },
+    { kind: "special", id: "cbrt2", label: "∛2" },
+    { kind: "special", id: "ln2", label: "ln 2" },
+    { kind: "special", id: "tau", label: "τ" },
   ];
   await page.route(
     "http://127.0.0.1:54321/functions/v1/game-api/**",
@@ -473,7 +477,7 @@ test("all special symbols render from API labels in packs and the stash", async 
       return route.fulfill({
         headers,
         json: {
-          cards: [...specials, ...specials],
+          cards: [...specials, specials[0]],
           replayed: false,
           packAllowances: 0,
           nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
@@ -487,7 +491,7 @@ test("all special symbols render from API labels in packs and the stash", async 
   for (const special of specials) {
     await expect(
       page.locator(".pack-cards").getByText(special.label, { exact: true }),
-    ).toHaveCount(2);
+    ).toHaveCount(special.id === "pi" ? 2 : 1);
     await expect(
       page.locator(".cards:not(.pack-cards)").getByText(special.label, {
         exact: true,

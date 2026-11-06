@@ -19,9 +19,9 @@ provides:
 - The entire collection is fetched once and held in memory. Page navigation
   makes no network requests. Opening a pack, Refresh, or a page reload fetches a
   fresh snapshot; signing out clears it.
-- Negative and special unlock milestones; π, e, φ, i, and √2 use catalog labels
-  in packs and the stash. Specials unlock at 100 distinct cards with a 0.5%
-  chance per draw.
+- Negative and special unlock milestones; π, e, φ, i, √2, √3, ∛2, ln 2, and τ
+  use catalog labels in packs and the stash. Specials unlock at 100 distinct
+  cards with a 0.5% chance per draw.
 - Past packs load on demand, newest first, with dates and original discovery
   badges. Load older packs to browse further back. Copy pack works on both
   latest and past packs: one sorted card per line, page-colored square emoji,

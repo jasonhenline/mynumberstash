@@ -26,11 +26,11 @@ cannot call the award function or write their own collection.
   catalog. Storage accepts up to 200 characters per integer, a practical limit
   far beyond typical draws from this distribution.
 - After collecting 100 distinct cards, each draw has a 0.5% chance of being a
-  special number. The catalog contains π, e, φ (the golden ratio), i, and √2.
-  Each has an equal share of the special probability (0.1% per card currently);
-  duplicates increase quantities. Otherwise, the normal integer rules apply.
-  Unlocks take effect starting with the next pack, using distinct cards before
-  opening.
+  special number. The catalog contains π, e, φ (the golden ratio), i, √2, √3,
+  ∛2, ln 2, and τ (2π). Each has an equal share of the special probability (0.1%
+  per card currently); duplicates increase quantities. Otherwise, the normal
+  integer rules apply. Unlocks take effect starting with the next pack, using
+  distinct cards before opening.
 
 Special definitions are read from `special_cards` when generating unlocked
 packs. Add catalog entries through a migration to expand the pool. Pack

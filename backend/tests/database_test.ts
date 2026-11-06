@@ -67,6 +67,29 @@ Deno.test("pack awards are atomic, retry-safe, cooldown-enforced, and protected 
         { id: "sqrt2", label: "√2" },
       ],
     );
+    await db.exec(
+      await Deno.readTextFile(
+        new URL(
+          "../supabase/migrations/20261106000000_more_special_numbers.sql",
+          import.meta.url,
+        ),
+      ),
+    );
+    assertEquals(
+      (await db.query("select id, label from public.special_cards order by id"))
+        .rows,
+      [
+        { id: "cbrt2", label: "∛2" },
+        { id: "e", label: "e" },
+        { id: "i", label: "i" },
+        { id: "ln2", label: "ln 2" },
+        { id: "phi", label: "φ" },
+        { id: "pi", label: "π" },
+        { id: "sqrt2", label: "√2" },
+        { id: "sqrt3", label: "√3" },
+        { id: "tau", label: "τ" },
+      ],
+    );
     const user = "00000000-0000-4000-8000-000000000001";
     await db.exec(
       await Deno.readTextFile(

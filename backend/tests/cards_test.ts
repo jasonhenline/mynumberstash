@@ -93,14 +93,23 @@ Deno.test("every special gets an equal interval of the selection draw", () => {
     { id: "phi", label: "φ" },
     { id: "pi", label: "π" },
     { id: "sqrt2", label: "√2" },
+    { id: "sqrt3", label: "√3" },
+    { id: "cbrt2", label: "∛2" },
+    { id: "ln2", label: "ln 2" },
+    { id: "tau", label: "τ" },
   ];
   const draws: number[] = [];
-  for (let i = 0; i < 10; i++) draws.push(0, (i % 5 + 0.5) / 5);
+  for (let i = 0; i < 10; i++) {
+    draws.push(0, (i % specials.length + 0.5) / specials.length);
+  }
   assertEquals(
     generatePack(100, () => draws.shift()!, specials),
     Array.from(
       { length: 10 },
-      (_, i) => ({ kind: "special" as const, ...specials[i % 5] }),
+      (_, i) => ({
+        kind: "special" as const,
+        ...specials[i % specials.length],
+      }),
     ),
   );
   assertThrows(() => generatePack(100), Error, "No special cards configured");

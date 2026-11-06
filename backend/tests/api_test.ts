@@ -222,6 +222,10 @@ Deno.test("unlocked pack generation loads special definitions from the catalog",
     { id: "phi", label: "φ" },
     { id: "pi", label: "π" },
     { id: "sqrt2", label: "√2" },
+    { id: "sqrt3", label: "√3" },
+    { id: "cbrt2", label: "∛2" },
+    { id: "ln2", label: "ln 2" },
+    { id: "tau", label: "τ" },
   ];
   const handler = createGameHandler(
     config,
