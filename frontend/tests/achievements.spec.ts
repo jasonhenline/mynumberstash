@@ -101,6 +101,8 @@ test("achievements use the in-memory collection, cache calculations, and refresh
   expect(reads).toBe(initialReads + 2);
   await page.getByRole("link", { name: "Stash", exact: true }).click();
   await page.getByRole("button", { name: "Open a pack" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Reveal all", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Your latest pack" })).toBeVisible();
   await page.getByRole("link", { name: "Achievements", exact: true }).click();
   await expect(page.locator('[data-achievement="squares"] dd')).toHaveText("6");

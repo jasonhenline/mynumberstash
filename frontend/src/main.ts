@@ -54,6 +54,7 @@ let player: Player | null = null;
 let album: Album | null = null;
 let albumPage = "0";
 let pack: Pack | null = null;
+let packReveal: { index: number; summary: boolean } | null = null;
 let history: PackHistory | null = null;
 let historyOpen = false;
 let shareText = "";
@@ -191,7 +192,8 @@ async function copyPack(value: Pick<Pack, "cards" | "newCardKeys">) {
   } catch {
     shareText = text;
     render();
-    const field = document.querySelector<HTMLTextAreaElement>("#share-text");
+    const field = document.querySelector<HTMLTextAreaElement>("#reveal-share-text")
+      ?? document.querySelector<HTMLTextAreaElement>("#share-text");
     field?.focus();
     field?.select();
   }
@@ -247,7 +249,45 @@ function cardMarkup(card: Card, quantity?: number, isNew = false): string {
   }</span></div>`;
 }
 
+function packRevealMarkup(): string {
+  if (!pack || !packReveal) return "";
+  const cards = [...pack.cards].sort(comparePackCards);
+  const card = cards[packReveal.index];
+  const isNew = pack.newCardKeys?.includes(cardKey(card));
+  return `<dialog id="pack-reveal" aria-labelledby="reveal-title"><div class="reveal-heading"><div><span class="eyebrow">${
+    pack.replayed ? "YOUR RECOVERED PACK" : "FRESH FROM THE PACK"
+  }</span><h2 id="reveal-title">${packReveal.summary ? "Your pack summary" : "Your pack"}</h2></div><button id="close-reveal" class="text-button">Back to stash</button></div>${
+    messageKind === "error" && message ? `<p class="notice error" role="alert">${escape(message)}</p>` : ""
+  }${packReveal.summary
+    ? `<div class="cards reveal-summary">${packCardsMarkup(pack)}</div>${shareText ? `<label for="reveal-share-text">Copy this text into your post</label><textarea id="reveal-share-text" class="share-text" readonly rows="13">${escape(shareText)}</textarea>` : message === "Pack copied. Paste it into your post!" ? `<p role="status">${escape(message)}</p>` : ""}<div class="reveal-summary-actions"><button id="copy-reveal" class="secondary">Copy pack</button><button id="finish-reveal">Done</button></div>`
+    : `<p id="reveal-progress" aria-live="polite">Card ${packReveal.index + 1} of ${cards.length}</p><div class="reveal-stage ${isNew ? "discovery" : ""}" role="group" aria-label="${escape(`Card ${packReveal.index + 1} of ${cards.length}: ${label(card)}${isNew ? ", new to your stash" : ""}`)}">${cardMarkup(card, undefined, isNew)}</div><div class="reveal-controls"><button id="previous-card" class="secondary" ${packReveal.index === 0 ? "disabled" : ""}>Previous card</button><button id="next-card">${packReveal.index === cards.length - 1 ? "View pack summary" : "Next card"}</button></div><button id="reveal-all" class="text-button">Reveal all</button><p class="fine-print reveal-hint">Swipe or use the arrow keys to move between cards.</p>`
+  }</dialog>`;
+}
+
+function advanceReveal(direction: -1 | 1) {
+  if (!packReveal || !pack || packReveal.summary) return;
+  if (direction === -1) packReveal.index = Math.max(0, packReveal.index - 1);
+  else if (packReveal.index === pack.cards.length - 1) packReveal.summary = true;
+  else packReveal.index++;
+  render();
+}
+
+function closeReveal(summary = false) {
+  packReveal = null;
+  currentView = "stash";
+  window.history.replaceState(null, "", "#stash");
+  render();
+  const target = document.querySelector<HTMLElement>(summary ? "#latest-pack h2" : "#open-pack:not(:disabled), #stash-title");
+  if (target) {
+    if (target.tagName !== "BUTTON") target.tabIndex = -1;
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "center" });
+  }
+}
+
 function render() {
+  const focusedRevealControl = document.querySelector("#pack-reveal")?.contains(document.activeElement)
+    ? document.activeElement?.id : null;
   app.innerHTML = `
     <header><a class="brand" href="/">N<span>°</span> <span class="brand-name">MY NUMBER STASH</span></a>${
     session
@@ -281,8 +321,18 @@ function render() {
       : gameMarkup()
   }
     </main>
-    <footer><span>Small numbers. Endless possibilities.</span><span>MY NUMBER STASH · 001</span></footer>`;
+    <footer><span>Small numbers. Endless possibilities.</span><span>MY NUMBER STASH · 001</span></footer>${session && authView === "signin" ? packRevealMarkup() : ""}`;
   bind();
+  const dialog = document.querySelector<HTMLDialogElement>("#pack-reveal");
+  document.body.classList.toggle("pack-reveal-open", !!dialog);
+  if (dialog) {
+    dialog.showModal();
+    const previousControl = focusedRevealControl
+      ? dialog.querySelector<HTMLButtonElement>(`#${focusedRevealControl}`) : null;
+    const focus = previousControl && !previousControl.disabled ? previousControl
+      : dialog.querySelector<HTMLButtonElement>(packReveal?.summary ? "#finish-reveal" : "#next-card");
+    focus?.focus({ preventScroll: true });
+  }
   updateCountdown();
   if (session && authView === "signin" && currentView === "achievements") calculateAchievements();
 }
@@ -627,6 +677,35 @@ async function run(action: () => Promise<void>) {
 }
 
 function bind() {
+  document.querySelector("#next-card")?.addEventListener("click", () => advanceReveal(1));
+  document.querySelector("#previous-card")?.addEventListener("click", () => advanceReveal(-1));
+  document.querySelector("#reveal-all")?.addEventListener("click", () => {
+    if (!packReveal) return;
+    packReveal.summary = true;
+    render();
+  });
+  document.querySelector("#close-reveal")?.addEventListener("click", () => closeReveal());
+  document.querySelector("#finish-reveal")?.addEventListener("click", () => closeReveal(true));
+  document.querySelector("#copy-reveal")?.addEventListener("click", () => { if (pack) void copyPack(pack); });
+  document.querySelector("#pack-reveal")?.addEventListener("cancel", event => {
+    event.preventDefault();
+    closeReveal();
+  });
+  const stage = document.querySelector<HTMLElement>(".reveal-stage");
+  let swipe: { x: number; y: number; pointerId: number } | null = null;
+  stage?.addEventListener("pointerdown", event => {
+    if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+    swipe = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+    stage.setPointerCapture(event.pointerId);
+  });
+  stage?.addEventListener("pointercancel", () => { swipe = null; });
+  stage?.addEventListener("pointerup", event => {
+    if (!swipe || swipe.pointerId !== event.pointerId) return;
+    const dx = event.clientX - swipe.x;
+    const dy = event.clientY - swipe.y;
+    swipe = null;
+    if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.25) advanceReveal(dx < 0 ? 1 : -1);
+  });
   document.querySelector("#retry-achievements")?.addEventListener("click", () => {
     clearAchievements();
     render();
@@ -801,6 +880,7 @@ function bind() {
         clearAchievements();
         albumPage = "0";
         pack = null;
+        packReveal = null;
         history = null;
         historyOpen = false;
         shareText = "";
@@ -854,6 +934,8 @@ function bind() {
         localStorage.setItem(storageKey, pendingId);
         try {
           pack = await api<Pack>("/packs/open", { requestId: pendingId });
+          shareText = "";
+          packReveal = { index: 0, summary: false };
           localStorage.removeItem(storageKey);
           pendingId = null;
           if (player) {
@@ -893,6 +975,7 @@ function connect(config: Connection) {
   clearAchievements();
   albumPage = "0";
   pack = null;
+  packReveal = null;
   history = null;
   historyOpen = false;
   shareText = "";
@@ -930,6 +1013,7 @@ function connect(config: Connection) {
         clearAchievements();
         albumPage = "0";
         pack = null;
+        packReveal = null;
         history = null;
         historyOpen = false;
         shareText = "";
@@ -971,4 +1055,12 @@ setInterval(updateCountdown, 1000);
 window.addEventListener("hashchange", () => {
   currentView = location.hash === "#achievements" ? "achievements" : "stash";
   render();
+});
+document.addEventListener("keydown", event => {
+  if (!document.querySelector("#pack-reveal") || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+  if ((event.target as HTMLElement).closest("input, textarea, select")) return;
+  if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+    event.preventDefault();
+    advanceReveal(event.key === "ArrowRight" ? 1 : -1);
+  }
 });

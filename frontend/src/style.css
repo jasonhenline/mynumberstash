@@ -24,6 +24,91 @@
 body {
   margin: 0;
 }
+body.pack-reveal-open {
+  overflow: hidden;
+}
+#pack-reveal {
+  width: min(720px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: clamp(18px, 4vw, 32px);
+  background: var(--background);
+  color: var(--text);
+  border: 1px solid var(--control-border);
+  border-radius: 16px;
+  overflow-y: auto;
+}
+#pack-reveal::backdrop {
+  background: rgb(4 9 14 / 94%);
+}
+.reveal-heading, .reveal-controls, .reveal-summary-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.reveal-heading h2 {
+  margin-bottom: 0;
+}
+.reveal-heading .text-button {
+  flex-shrink: 0;
+}
+#reveal-progress, .reveal-hint {
+  text-align: center;
+}
+.reveal-stage {
+  width: min(320px, 100%);
+  margin: 24px auto;
+  touch-action: pan-y;
+  animation: card-arrival 180ms ease-out;
+}
+.reveal-stage .number-card {
+  min-height: clamp(260px, 44dvh, 400px);
+  padding: 24px;
+  background: var(--pack);
+  border-color: var(--control-border);
+  border-radius: 16px;
+  gap: 28px;
+}
+.reveal-stage.discovery .number-card {
+  border-color: var(--accent);
+  box-shadow: 0 0 24px rgb(118 239 184 / 12%);
+}
+.reveal-stage .number {
+  font-size: clamp(32px, 10vw, 72px);
+}
+.reveal-stage .card-kind, .reveal-stage .card-footer {
+  font-size: 10px;
+}
+.reveal-controls button {
+  flex: 1;
+  padding-inline: 10px;
+}
+#reveal-all {
+  display: block;
+  margin: 20px auto 0;
+}
+.reveal-summary {
+  grid-template-columns: repeat(auto-fit, minmax(min(110px, 100%), 1fr));
+  margin-top: 28px;
+}
+.reveal-summary .number-card {
+  min-height: 140px;
+  padding: 12px;
+}
+.reveal-summary .number {
+  font-size: 28px;
+}
+.reveal-summary-actions {
+  justify-content: flex-end;
+}
+@keyframes card-arrival {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-stage { animation: none; }
+}
 header, main, footer {
   max-width: 1080px;
   margin: auto;
@@ -395,7 +480,7 @@ a {
 .past-pack button {
   flex-shrink: 0;
 }
-#share-text {
+#share-text, .share-text {
   width: 100%;
   background: var(--empty);
   color: var(--text);

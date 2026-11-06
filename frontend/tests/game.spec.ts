@@ -82,6 +82,14 @@ async function signIn(page: Page) {
   await expect(page.getByRole("button", { name: "Open a pack" })).toBeEnabled();
 }
 
+async function finishPackReveal(page: Page) {
+  const dialog = page.getByRole("dialog", { name: "Your pack", exact: true });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Reveal all", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
 test("signup uses local email confirmation; login, opening, collection, and signout work", async ({ page }) => {
   await mockAuth(page);
   let opened = false;
@@ -147,6 +155,7 @@ test("signup uses local email confirmation; login, opening, collection, and sign
     .toHaveAttribute("href", "http://localhost:54324");
   await signIn(page);
   await page.getByRole("button", { name: "Open a pack" }).click();
+  await finishPackReveal(page);
   await expect(page.getByRole("heading", { name: "Your latest pack" }))
     .toBeVisible();
   await expect(page.locator(".pack-cards .number-card")).toHaveCount(10);
@@ -158,6 +167,11 @@ test("signup uses local email confirmation; login, opening, collection, and sign
     /Next allowance in \d+h \d+m \d+s/,
   );
   await expect(page.locator(".intro")).toHaveCount(0);
+  // Done deliberately returns to the pack summary. Return to the top before
+  // checking the stash layout in each viewport.
+  await expect(page.getByRole("heading", { name: "Your latest pack" }))
+    .toBeInViewport();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.locator(".album-slot.owned").first())
     .toBeInViewport();
   await expect(page.getByRole("link", { name: "Latest pack ↓" }))
@@ -167,6 +181,7 @@ test("signup uses local email confirmation; login, opening, collection, and sign
     fullPage: true,
   });
   await page.setViewportSize({ width: 375, height: 812 });
+  await page.evaluate(() => window.scrollTo(0, 0));
   await expect(page.locator(".album-slot.owned").first())
     .toBeInViewport();
   await page.screenshot({
@@ -250,6 +265,7 @@ test("an interrupted opening retains its request ID across reload and recovers t
   await expect(page.getByRole("button", { name: "Retry pack opening" }))
     .toBeEnabled();
   await page.getByRole("button", { name: "Retry pack opening" }).click();
+  await finishPackReveal(page);
   await expect(page.getByRole("heading", { name: "Your recovered pack" }))
     .toBeVisible();
   await expect(page.locator(".pack-cards .new-card-marker")).toHaveCount(10);
@@ -332,6 +348,7 @@ for (const initial of [3, 6]) {
     }
     for (let count = initial; count > 0; count--) {
       await page.getByRole("button", { name: "Open a pack" }).click();
+      await finishPackReveal(page);
       await expect(page.locator("#pack-balance")).toHaveText(
         `${count - 1} of 6 packs available`,
       );
@@ -405,10 +422,12 @@ test("reaching 100 unlocks specials and pi renders in packs and the stash", asyn
   await expect(milestone).toContainText("Locked");
   await expect(milestone).toContainText("unlock at 100");
   await page.getByRole("button", { name: "Open a pack" }).click();
+  await finishPackReveal(page);
   await expect(milestone).toContainText("Unlocked");
   await expect(page.locator(".pack-cards .number").filter({ hasText: "π" }))
     .toHaveCount(0);
   await page.getByRole("button", { name: "Open a pack" }).click();
+  await finishPackReveal(page);
   await expect(page.locator(".pack-cards .number").filter({ hasText: "π" }))
     .toHaveCount(2);
   const owned = page.locator(".cards:not(.pack-cards) .number-card");
@@ -488,6 +507,7 @@ test("all special symbols render from API labels in packs and the stash", async 
   await connect(page);
   await signIn(page);
   await page.getByRole("button", { name: "Open a pack" }).click();
+  await finishPackReveal(page);
   for (const special of specials) {
     await expect(
       page.locator(".pack-cards").getByText(special.label, { exact: true }),
@@ -713,6 +733,25 @@ test("packs sort by exact absolute value with specials last and mark discoveries
   await connect(page);
   await signIn(page);
   await page.getByRole("button", { name: "Open a pack" }).click();
+  await expect(page.locator(".reveal-stage .number")).toHaveText("0");
+  await expect(page.locator("#previous-card")).toBeDisabled();
+  await expect(page.locator(".reveal-stage .number-card")).toHaveCount(1);
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator(".reveal-stage .number")).toHaveText("-1");
+  await page.keyboard.press("ArrowLeft");
+  await expect(page.locator(".reveal-stage .number")).toHaveText("0");
+  const sequence = ["-1", "-2", "-2", "2", "-10", `-${huge}`, huge, "π", "φ"];
+  for (let i = 0; i < sequence.length; i++) {
+    await page.getByRole("button", { name: "Next card", exact: true }).click();
+    await expect(page.locator(".reveal-stage .number")).toHaveText(sequence[i]);
+    await expect(page.locator("#reveal-progress")).toHaveText(`Card ${i + 2} of 10`);
+  }
+  await expect(page.locator(".reveal-stage .new-card-marker")).toHaveText("NEW");
+  expect(openings).toBe(1);
+  await page.getByRole("button", { name: "View pack summary", exact: true }).click();
+  await expect(page.locator(".reveal-summary .number-card")).toHaveCount(10);
+  await expect(page.locator(".reveal-summary .new-card-marker")).toHaveCount(8);
+  await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
   await expect(page.locator(".pack-cards .number")).toHaveText([
     "0",
     "-1",
@@ -737,6 +776,7 @@ test("packs sort by exact absolute value with specials last and mark discoveries
   await page.getByRole("button", { name: "Refresh" }).click();
   await expect(page.locator(".pack-cards .new-card-marker")).toHaveCount(8);
   await page.getByRole("button", { name: "Open a pack" }).click();
+  await finishPackReveal(page);
   await expect(page.locator(".pack-cards .new-card-marker")).toHaveCount(0);
 });
 
@@ -868,6 +908,7 @@ test("past packs load on demand and copy shareable cards with original discoveri
   await page.getByRole("button", { name: "View past packs" }).click();
   expect(reads).toBe(2);
   await page.getByRole("button", { name: "Open a pack" }).click();
+  await finishPackReveal(page);
   await expect(page.locator(".past-pack")).toHaveCount(1);
   expect(reads).toBe(3);
   await page.locator("#latest-pack").getByRole("button", { name: "Copy pack" })
@@ -897,4 +938,79 @@ test("past packs load on demand and copy shareable cards with original discoveri
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.locator(".past-pack")).toHaveCount(0);
   await expect(page.locator("#share-text")).toHaveCount(0);
+});
+
+test("face-up pack reveal supports touch, reduced motion, summary copying, and early exit", async ({ page }) => {
+  await mockAuth(page);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", { value: {
+      writeText: async () => { throw new Error("Clipboard unavailable"); },
+    } });
+  });
+  let openings = 0;
+  await page.route("http://127.0.0.1:54321/functions/v1/game-api/**", async route => {
+    const headers = { "Access-Control-Allow-Origin": "http://localhost:5173", "Access-Control-Allow-Headers": "*" };
+    if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers });
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/me")) return route.fulfill({ headers, json: {
+      ...basePlayer, packAllowances: 2 - openings, serverTime: new Date().toISOString(),
+    } });
+    if (path.endsWith("/stash")) return route.fulfill({ headers, json: snapshotResponse(openings ? collection : []) });
+    openings++;
+    return route.fulfill({ headers, json: {
+      cards: [...cards].reverse(), newCardKeys: openings === 1 ? cards.map(card => `integer:${card.value}`) : [],
+      replayed: false, packAllowances: 2 - openings,
+      nextAllowanceAt: new Date(Date.now() + 14400000).toISOString(),
+    } });
+  });
+  await connect(page);
+  await signIn(page);
+  await page.getByRole("button", { name: "Open a pack" }).click();
+  await expect(page.getByRole("dialog", { name: "Your pack", exact: true })).toBeVisible();
+  await expect(page.locator(".reveal-stage .number")).toHaveText("0");
+  await expect(page.locator(".reveal-stage .new-card-marker")).toBeVisible();
+  // Let the post-award stash refresh settle before starting a touch gesture.
+  await expect(page.locator("#signout")).toBeEnabled();
+  expect(await page.locator(".reveal-stage").evaluate(el => getComputedStyle(el).animationName)).toBe("none");
+  // Dispatch real touch events so pointer capture and pan-y behavior are exercised.
+  const touch = await page.context().newCDPSession(page);
+  async function swipe(left: boolean) {
+    const bounds = await page.locator(".reveal-stage").boundingBox();
+    if (!bounds) throw new Error("Missing reveal card");
+    const y = bounds.y + Math.min(bounds.height / 2, 100);
+    const start = bounds.x + bounds.width * (left ? 0.8 : 0.2);
+    const end = bounds.x + bounds.width * (left ? 0.2 : 0.8);
+    await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: start, y }] });
+    await touch.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: end, y }] });
+    await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  }
+  await swipe(true);
+  await expect(page.locator(".reveal-stage .number")).toHaveText("1");
+  await swipe(false);
+  await expect(page.locator(".reveal-stage .number")).toHaveText("0");
+  await touch.detach();
+  expect(openings).toBe(1);
+  await page.getByRole("button", { name: "Reveal all", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Your pack summary", exact: true })).toBeVisible();
+  await expect(page.locator(".reveal-summary .number")).toHaveText(cards.map(card => card.value));
+  await page.getByRole("dialog").getByRole("button", { name: "Copy pack", exact: true }).click();
+  await expect(page.locator("#reveal-share-text")).toHaveValue(
+    cards.map(card => `⬜ ${card.value} ✨`).join("\n") + "\n\nhttps://mynumberstash.com",
+  );
+  await page.getByRole("dialog").screenshot({ path: "test-results/pack-reveal-mobile.png" });
+  await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "Open a pack" }).click();
+  await expect(page.locator(".reveal-stage .number")).toHaveText("0");
+  await expect(page.locator(".reveal-stage .new-card-marker")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("body")).not.toHaveClass(/pack-reveal-open/);
+  await expect(page.locator(".pack-cards .number-card")).toHaveCount(10);
+  expect(openings).toBe(2);
+  await page.reload();
+  await expect(page.locator(".album-slot.owned")).toHaveCount(10);
+  expect(openings).toBe(2);
 });

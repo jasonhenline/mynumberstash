@@ -10,6 +10,13 @@ provides:
 - A pack-opening button, balance of up to six packs, and refill countdown using
   the backend's server time. The displayed balance updates as allowances refill.
 - Pack recovery with the same request ID after a lost response or page reload.
+- Opening or recovering a pack immediately opens a focused dialog with the first
+  card face up. Next/Previous, arrow keys, and horizontal swipes navigate the
+  sorted cards. Reveal all skips to the full summary and Copy pack button.
+  Escape or Back to stash closes the dialog; the awarded cards remain in the
+  collection and history. The dialog contains keyboard focus and respects the
+  reduced-motion preference. The server awards the entire pack before revealing
+  it; card navigation never makes another request or spends another allowance.
 - Displayed packs sort integers by absolute value (negative first for ties),
   with specials last. NEW badges mark numbers absent before that pack, including
   all copies of a newly discovered number. Recovered packs retain their badges.
