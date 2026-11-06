@@ -5,6 +5,8 @@ provides:
 
 - A local connection screen accepting only public keys and loopback HTTP URLs.
 - Email/password signup, confirmation through the local mail viewer, and login.
+- Forgot-password emails, a recovery screen with password confirmation, and
+  handling for expired links and sessions. Recovery uses Supabase Auth directly.
 - A pack-opening button, balance of up to six packs, and refill countdown using
   the backend's server time. The displayed balance updates as allowances refill.
 - Pack recovery with the same request ID after a lost response or page reload.
@@ -57,6 +59,46 @@ pnpm test:web
 ```
 
 ## Production
+
+### Password recovery
+
+The sign-in screen has a Forgot password button. Reset emails return to
+`/reset-password` on the origin where they were requested. The app waits for
+Supabase to establish a recovery session before allowing a password update.
+An in-tab recovery marker allows refreshing the form without storing passwords
+or recovery tokens outside Supabase's normal session storage. Successful updates
+clear the marker and return to the stash.
+
+The local and production Supabase configurations include the exact recovery
+redirect URLs. After changing the local configuration, restart local Supabase
+with `pnpm backend:stop` and `pnpm backend:start`; existing local data is retained.
+Local reset emails appear at `http://localhost:54324`.
+
+From the repository root, test and publish this flow:
+
+```sh
+pnpm test:web
+pnpm exec supabase --workdir backend/production config push --project-ref csmhjxjmxhdsrcqbgrxp --yes
+pnpm deploy:web
+```
+
+Push the auth configuration before publishing the frontend. This adds
+`https://mynumberstash.com/reset-password` and
+`https://number-club.pages.dev/reset-password` to the redirect allowlist while
+preserving other undeclared hosted settings. No database migration or Edge
+Function deployment is needed. Cloudflare Pages' SPA fallback serves the app
+when opening a recovery URL directly.
+
+Browser recovery tests run against local development and production builds,
+with mocked auth endpoints. They cover reset requests, recovery callbacks,
+reloads, password confirmation, API errors, and expired links/sessions without
+sending real emails. For a final email check after deployment, request a reset
+for your own account, follow the email link, and save a new password.
+
+See [Supabase's recovery flow](https://supabase.com/docs/reference/javascript/auth-resetpasswordforemail)
+and [redirect configuration](https://supabase.com/docs/guides/auth/redirect-urls).
+
+### Hosted frontend
 
 Live frontend: **https://number-club.pages.dev** (Cloudflare Pages project
 `number-club`). Use `pnpm deploy:web` from the repository root to publish

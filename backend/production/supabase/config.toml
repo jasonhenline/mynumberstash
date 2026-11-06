@@ -4,7 +4,7 @@ project_id = "number-collection-production"
 
 [auth]
 site_url = "https://mynumberstash.com"
-additional_redirect_urls = ["https://mynumberstash.com", "https://number-club.pages.dev"]
+additional_redirect_urls = ["https://mynumberstash.com", "https://number-club.pages.dev", "https://mynumberstash.com/reset-password", "https://number-club.pages.dev/reset-password"]
 
 [auth.email]
 enable_confirmations = true

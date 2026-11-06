@@ -181,6 +181,9 @@ form > button {
   font-size: 12px;
   margin-top: 24px;
 }
+#forgot-password, #back-to-signin {
+  margin-top: 16px;
+}
 a {
   color: var(--accent);
 }

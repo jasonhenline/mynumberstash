@@ -6,12 +6,12 @@ export default defineConfig({
   projects: [
     {
       name: "local",
-      testMatch: "game.spec.ts",
+      testMatch: ["game.spec.ts", "password-reset.spec.ts"],
       use: { baseURL: "http://localhost:5173" },
     },
     {
       name: "production",
-      testMatch: "production.spec.ts",
+      testMatch: ["production.spec.ts", "password-reset.spec.ts"],
       use: { baseURL: "http://localhost:5174" },
     },
   ],

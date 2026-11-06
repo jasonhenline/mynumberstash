@@ -62,6 +62,22 @@ let message = "";
 let messageKind: "success" | "error" = "success";
 let clockOffset = 0;
 let unsubscribe: (() => void) | null = null;
+const authReturn = new URLSearchParams(location.hash.slice(1));
+let authView: "signin" | "forgot" | "reset" =
+  location.pathname === "/reset-password" || authReturn.get("type") === "recovery"
+    ? "reset"
+    : "signin";
+let recoveryChecking = authView === "reset";
+let recoveryReady = false;
+const recoveryKey = () => `number-stash.recovery.${connection!.url}`;
+
+function leaveRecovery() {
+  if (connection) sessionStorage.removeItem(recoveryKey());
+  recoveryReady = false;
+  recoveryChecking = false;
+  authView = "signin";
+  window.history.replaceState(null, "", "/");
+}
 
 const escape = (value: unknown): string =>
   String(value).replace(
@@ -218,7 +234,11 @@ function render() {
       : ""
   }
       ${
-    !connection ? connectionMarkup() : !session ? authMarkup() : gameMarkup()
+    !connection ? connectionMarkup()
+      : authView === "reset" ? resetPasswordMarkup()
+      : authView === "forgot" ? forgotPasswordMarkup()
+      : !session ? authMarkup()
+      : gameMarkup()
   }
     </main>
     <footer><span>Small numbers. Endless possibilities.</span><span>MY NUMBER STASH · 001</span></footer>`;
@@ -247,7 +267,7 @@ function authMarkup(): string {
         <button class="secondary" type="submit" name="signup" ${
     busy ? "disabled" : ""
   }>Create account</button></div>
-    </form><p class="fine-print">${
+    </form><button id="forgot-password" class="text-button" ${busy ? "disabled" : ""}>Forgot password?</button><p class="fine-print">${
     localDevelopment
       ? 'After signing up, confirm your email in the <a href="http://localhost:54324" target="_blank" rel="noopener noreferrer">local mail viewer ↗</a>, then sign in here.'
       : "After signing up, check your inbox to confirm your email, then sign in."
@@ -256,6 +276,25 @@ function authMarkup(): string {
     localDevelopment
       ? '<button class="text-button" id="disconnect">Change connection</button>'
       : ""
+  }</section>`;
+}
+
+function forgotPasswordMarkup(): string {
+  return `<section class="panel setup"><span class="eyebrow">BACK TO YOUR STASH</span><h2>Reset your password.</h2>
+    <p>Enter your email and we’ll send you a password reset link.</p>
+    <form id="reset-email-form"><label for="reset-email">Email</label><input id="reset-email" name="email" type="email" autocomplete="email" required placeholder="collector@example.com">
+    <button type="submit" ${busy ? "disabled" : ""}>${busy ? "Sending…" : "Send reset link"}</button></form>
+    ${localDevelopment ? '<p class="fine-print">Find the reset email in the <a href="http://localhost:54324" target="_blank" rel="noopener noreferrer">local mail viewer ↗</a>.</p>' : ""}
+    <button id="back-to-signin" class="text-button" ${busy ? "disabled" : ""}>Back to sign in</button></section>`;
+}
+
+function resetPasswordMarkup(): string {
+  return `<section class="panel setup"><span class="eyebrow">BACK TO YOUR STASH</span><h2>Set a new password.</h2>${
+    recoveryChecking ? '<p>Checking your reset link…</p>' : recoveryReady && session
+      ? `<form id="new-password-form"><label for="new-password">New password</label><input id="new-password" name="password" type="password" autocomplete="new-password" minlength="6" required placeholder="At least 6 characters">
+        <label for="confirm-password">Confirm new password</label><input id="confirm-password" name="confirm" type="password" autocomplete="new-password" minlength="6" required>
+        <button type="submit" ${busy ? "disabled" : ""}>${busy ? "Saving…" : "Save new password"}</button></form>`
+      : '<p>This reset link has expired or is invalid. Request a new link to try again.</p><button id="forgot-password">Request a new reset link</button>'
   }</section>`;
 }
 
@@ -527,6 +566,58 @@ async function run(action: () => Promise<void>) {
 }
 
 function bind() {
+  document.querySelector("#forgot-password")?.addEventListener("click", () => {
+    if (busy) return;
+    leaveRecovery();
+    authView = "forgot";
+    message = "";
+    render();
+  });
+  document.querySelector("#back-to-signin")?.addEventListener("click", () => {
+    if (busy) return;
+    leaveRecovery();
+    message = "";
+    render();
+  });
+  document.querySelector<HTMLFormElement>("#reset-email-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const email = String(new FormData(event.currentTarget as HTMLFormElement).get("email")).trim();
+    void run(async () => {
+      const { error } = await client!.auth.resetPasswordForEmail(email, {
+        redirectTo: `${location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      notify(
+        localDevelopment
+          ? "If an account exists for that email, check the local mail viewer for a reset link."
+          : "If an account exists for that email, check your inbox for a reset link.",
+      );
+    });
+  });
+  document.querySelector<HTMLFormElement>("#new-password-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget as HTMLFormElement);
+    const password = String(form.get("password"));
+    if (password !== String(form.get("confirm"))) {
+      notify("Your passwords don’t match. Please enter them again.", "error");
+      return;
+    }
+    void run(async () => {
+      if (!session || !recoveryReady) throw new Error("Request a new reset link to continue.");
+      const { error } = await client!.auth.updateUser({ password });
+      if (error) {
+        if (error.status === 401 || error.status === 403 || error.name === "AuthSessionMissingError") {
+          recoveryReady = false;
+          sessionStorage.removeItem(recoveryKey());
+          throw new Error("Your reset session has expired. Request a new reset link.");
+        }
+        throw error;
+      }
+      leaveRecovery();
+      notify("Your password has been updated.");
+      await loadGame();
+    });
+  });
   document.querySelector("#toggle-history")?.addEventListener("click", () => {
     if (busy) return;
     historyOpen = !historyOpen;
@@ -639,6 +730,7 @@ function bind() {
         const { error } = await client!.auth.signOut({ scope: "local" });
         if (error) throw error;
         session = null;
+        leaveRecovery();
         player = null;
         album = null;
         albumPage = "0";
@@ -741,14 +833,29 @@ function connect(config: Connection) {
   if (localDevelopment) {
     localStorage.setItem("number-club.connection", JSON.stringify(config));
   }
+  if (authReturn.has("error")) {
+    window.history.replaceState(null, "", location.pathname);
+    sessionStorage.removeItem(recoveryKey());
+  }
   client = createClient(config.url, config.key);
-  const { data } = client.auth.onAuthStateChange((_event, nextSession) => {
+  const { data } = client.auth.onAuthStateChange((event, nextSession) => {
     // Defer API calls until the Auth callback releases its internal lock.
     setTimeout(() => {
       if (connection !== config) return;
+      if (event === "PASSWORD_RECOVERY" && nextSession) {
+        authView = "reset";
+        recoveryReady = true;
+        sessionStorage.setItem(recoveryKey(), nextSession.user.id);
+        window.history.replaceState(null, "", "/reset-password");
+      }
+      if (authView === "reset") {
+        recoveryChecking = false;
+        recoveryReady = !!nextSession && sessionStorage.getItem(recoveryKey()) === nextSession.user.id;
+        if (!nextSession) sessionStorage.removeItem(recoveryKey());
+      }
       const changedUser = session?.user.id !== nextSession?.user.id;
       // INITIAL_SESSION with no saved login should not replace an active form.
-      if (!changedUser && !nextSession) return;
+      if (!changedUser && !nextSession && authView !== "reset") return;
       session = nextSession;
       if (changedUser) {
         player = null;
@@ -763,7 +870,7 @@ function connect(config: Connection) {
         ? localStorage.getItem(pendingKey(session.user.id))
         : null;
       render();
-      if (session && !busy && (changedUser || !album)) {
+      if (session && authView === "signin" && !busy && (changedUser || !album)) {
         void loadGame().catch(() =>
           notify(
             localDevelopment
