@@ -5,6 +5,7 @@ import {
 } from "@supabase/supabase-js";
 import "./style.css";
 import { productionConnection } from "./production-config";
+import type { AchievementCounts } from "./achievements";
 
 const localDevelopment = import.meta.env.DEV;
 
@@ -62,6 +63,45 @@ let message = "";
 let messageKind: "success" | "error" = "success";
 let clockOffset = 0;
 let unsubscribe: (() => void) | null = null;
+let currentView = location.hash === "#achievements" ? "achievements" : "stash";
+let achievements: AchievementCounts | null = null;
+let achievementWorker: Worker | null = null;
+let achievementError = false;
+
+function clearAchievements() {
+  achievementWorker?.terminate();
+  achievementWorker = null;
+  achievements = null;
+  achievementError = false;
+}
+
+function calculateAchievements() {
+  if (!album || achievements || achievementWorker || achievementError) return;
+  try {
+    const worker = new Worker(new URL("./achievements.worker.ts", import.meta.url), { type: "module" });
+    achievementWorker = worker;
+    worker.onmessage = (event: MessageEvent<AchievementCounts>) => {
+      if (achievementWorker !== worker) return;
+      achievements = event.data;
+      worker.terminate();
+      achievementWorker = null;
+      render();
+    };
+    worker.onerror = () => {
+      if (achievementWorker !== worker) return;
+      worker.terminate();
+      achievementWorker = null;
+      achievementError = true;
+      render();
+    };
+    worker.postMessage(album.cards.flatMap(item => item.card.kind === "integer" ? [item.card.value] : []));
+  } catch {
+    achievementWorker?.terminate();
+    achievementWorker = null;
+    achievementError = true;
+    render();
+  }
+}
 const authReturn = new URLSearchParams(location.hash.slice(1));
 let authView: "signin" | "forgot" | "reset" =
   location.pathname === "/reset-password" || authReturn.get("type") === "recovery"
@@ -244,6 +284,7 @@ function render() {
     <footer><span>Small numbers. Endless possibilities.</span><span>MY NUMBER STASH · 001</span></footer>`;
   bind();
   updateCountdown();
+  if (session && authView === "signin" && currentView === "achievements") calculateAchievements();
 }
 
 function connectionMarkup(): string {
@@ -299,7 +340,9 @@ function resetPasswordMarkup(): string {
 }
 
 function gameMarkup(): string {
-  return `<div class="stash-layout">
+  const navigation = `<nav class="game-navigation" aria-label="Your collection"><a href="#stash" ${currentView === "stash" ? 'aria-current="page"' : ""}>Stash</a><a href="#achievements" ${currentView === "achievements" ? 'aria-current="page"' : ""}>Achievements</a></nav>`;
+  if (currentView === "achievements") return navigation + achievementsMarkup();
+  return `${navigation}<div class="stash-layout">
     <section class="stash-section" aria-labelledby="stash-title">
       <div class="section-heading stash-heading"><div><span class="eyebrow">A LITTLE STASH OF INFINITY</span><h1 id="stash-title">Your stash</h1></div><div class="stash-actions">${
     pack ? '<a class="text-button" href="#latest-pack">Latest pack ↓</a>' : ""
@@ -342,6 +385,23 @@ function gameMarkup(): string {
       }</textarea></section>`
       : ""
   }`;
+}
+
+function achievementsMarkup(): string {
+  const categories = [
+    ["squares", "Squares", "0, 1, 4, 9, 16…"],
+    ["cubes", "Cubes", "…−8, −1, 0, 1, 8, 27…"],
+    ["primes", "Primes", "2, 3, 5, 7, 11…"],
+    ["fibonacci", "Fibonacci numbers", "0, 1, 2, 3, 5, 8…"],
+    ["triangular", "Triangular numbers", "0, 1, 3, 6, 10…"],
+    ["palindromes", "Palindromes", "Nonnegative numbers such as 7, 11, 121."],
+    ["opposites", "Opposite pairs", "Own both −n and n. Zero forms no pair."],
+  ] as const;
+  return `<section class="achievements-section" aria-labelledby="achievements-title"><div class="section-heading stash-heading"><div><span class="eyebrow">PATTERNS IN YOUR STASH</span><h1 id="achievements-title">Achievements</h1></div><button id="refresh" class="text-button" ${busy ? "disabled" : ""}>Refresh ↻</button></div><p>Counts use distinct collected integers. Duplicates and special cards don’t add to these totals. Categories can overlap.</p>${
+    achievements ? `<dl class="achievement-grid">${categories.map(([key, title, description]) => `<div class="achievement-card" data-achievement="${key}"><dt>${title}</dt><dd>${achievements![key]}</dd><p>${description}</p></div>`).join("")}</dl><p class="fine-print">Zero counts in every applicable category; primes start at 2. Cubes include negative values.</p><p class="fine-print">Prime checks are exact for numbers below 2⁶⁴ (18,446,744,073,709,551,616).${achievements.uncheckedPrimes ? ` ${achievements.uncheckedPrimes} larger positive number(s) are unchecked and excluded from the prime count; all other categories include them.` : ""}</p>`
+      : achievementError ? '<p role="alert">Could not calculate achievements.</p><button id="retry-achievements" class="secondary">Retry calculation</button>'
+      : '<p role="status">Calculating your achievements…</p>'
+  }</section>`;
 }
 
 function pageForNumber(value: bigint): bigint {
@@ -517,6 +577,7 @@ async function loadGame() {
   albumPage = String(
     current < minPage ? minPage : current > maxPage ? maxPage : current,
   );
+  clearAchievements();
   album = {
     page: albumPage,
     minPage: String(minPage),
@@ -566,6 +627,10 @@ async function run(action: () => Promise<void>) {
 }
 
 function bind() {
+  document.querySelector("#retry-achievements")?.addEventListener("click", () => {
+    clearAchievements();
+    render();
+  });
   document.querySelector("#forgot-password")?.addEventListener("click", () => {
     if (busy) return;
     leaveRecovery();
@@ -733,6 +798,7 @@ function bind() {
         leaveRecovery();
         player = null;
         album = null;
+        clearAchievements();
         albumPage = "0";
         pack = null;
         history = null;
@@ -824,6 +890,7 @@ function connect(config: Connection) {
   session = null;
   player = null;
   album = null;
+  clearAchievements();
   albumPage = "0";
   pack = null;
   history = null;
@@ -860,6 +927,7 @@ function connect(config: Connection) {
       if (changedUser) {
         player = null;
         album = null;
+        clearAchievements();
         albumPage = "0";
         pack = null;
         history = null;
@@ -900,3 +968,7 @@ try {
   render();
 }
 setInterval(updateCountdown, 1000);
+window.addEventListener("hashchange", () => {
+  currentView = location.hash === "#achievements" ? "achievements" : "stash";
+  render();
+});

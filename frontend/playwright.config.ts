@@ -6,7 +6,7 @@ export default defineConfig({
   projects: [
     {
       name: "local",
-      testMatch: ["game.spec.ts", "password-reset.spec.ts"],
+      testMatch: ["game.spec.ts", "password-reset.spec.ts", "achievements.spec.ts"],
       use: { baseURL: "http://localhost:5173" },
     },
     {

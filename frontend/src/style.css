@@ -229,6 +229,47 @@ a {
   gap: 28px;
   align-items: start;
 }
+.game-navigation {
+  display: flex;
+  gap: 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.game-navigation a {
+  padding: 10px 0;
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+  color: var(--muted);
+}
+.game-navigation a[aria-current="page"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 16px;
+  margin: 28px 0;
+}
+.achievement-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+}
+.achievement-card dt {
+  font-size: 16px;
+}
+.achievement-card dd {
+  font-family: "Space Mono", monospace;
+  color: var(--accent);
+  font-size: 36px;
+  margin: 16px 0;
+}
+.achievement-card p {
+  font-size: 12px;
+  margin: 0;
+}
 .stash-section, .game-sidebar {
   min-width: 0;
 }

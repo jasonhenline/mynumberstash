@@ -32,6 +32,32 @@ provides:
   the first five integer pages moving away from zero on either side; red also
   covers all later pages, and yellow represents specials.
 - Session persistence and signout through Supabase Auth.
+- An Achievements view counts distinct squares, cubes, primes, Fibonacci numbers,
+  triangular numbers, palindromes, and opposite pairs in the cached collection.
+  Opening this view makes no API calls. A background worker calculates counts
+  lazily and caches them until the collection refreshes, a pack is opened, or the
+  signed-in user changes. Signing out terminates pending work and clears counts.
+
+### Achievement definitions and computation
+
+Duplicates and specials do not contribute. Zero counts as a square, cube,
+Fibonacci number, triangular number, and palindrome. Cubes include negative
+values; squares, Fibonacci numbers, triangular numbers, and palindromes use
+nonnegative integers. Primes start at 2. Opposites count each distinct pair
+`-n, n` once, excluding zero. A number may contribute to several categories.
+
+All arithmetic uses BigInt. Integer roots use Newton iteration; Fibonacci
+membership uses a short sequence generated only as far as the largest owned
+integer. There is no iteration through every integer up to a card's value.
+Primality uses deterministic Miller–Rabin with the seven
+[Sinclair bases](https://miller-rabin.appspot.com/) for integers below `2^64`.
+Larger positive integers are explicitly reported as unchecked and excluded from
+the prime count; the other categories still classify them exactly. This bounds
+primality work without presenting probable primes as confirmed achievements.
+
+Run `pnpm test:web` from the repository root. The added tests cover exact counts,
+large integers, duplicate handling, cached navigation without extra API requests,
+worker reuse, refresh and pack invalidation, and the mobile layout.
 
 After sign-in, the stash is the main view. Desktop pack controls and progress
 sit in a sidebar; mobile uses a compact pack bar above the collection. Latest
